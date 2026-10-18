@@ -226,6 +226,119 @@ class TestFinanceBenchRetrieval(unittest.TestCase):
         self.assertEqual(tot["page_recall"]["recall_at_1"], 0.5)
         self.assertEqual(tot["mrr"], 0.5)
 
+    def test_evidence_document_resolution(self):
+        # Case 1: doc_name explicitly present on evidence item
+        ev1 = {"doc_name": "CORP_A_2022_10K", "evidence_page_num": 10}
+        q1 = {"doc_name": "CORP_FALLBACK_10K"}
+        resolved_doc1 = ev1.get("doc_name") or ev1.get("evidence_doc_name") or q1.get("doc_name")
+        self.assertEqual(resolved_doc1, "CORP_A_2022_10K")
+
+        # Case 2: evidence_doc_name present on evidence item
+        ev2 = {"evidence_doc_name": "CORP_B_2021_10K", "evidence_page_num": 15}
+        q2 = {"doc_name": "CORP_FALLBACK_10K"}
+        resolved_doc2 = ev2.get("doc_name") or ev2.get("evidence_doc_name") or q2.get("doc_name")
+        self.assertEqual(resolved_doc2, "CORP_B_2021_10K")
+
+        # Case 3: evidence item lacks doc identifier, falls back to question-level doc_name
+        ev3 = {"evidence_page_num": 20}
+        q3 = {"doc_name": "CORP_C_2023Q2_10Q"}
+        resolved_doc3 = ev3.get("doc_name") or ev3.get("evidence_doc_name") or q3.get("doc_name")
+        self.assertEqual(resolved_doc3, "CORP_C_2023Q2_10Q")
+
+    def test_page_offset_calculation(self):
+        # Synthetic document pages: {page_idx: text}
+        pages = {
+            0: "Cover page and general information.",
+            1: "Table of contents.",
+            2: "Consolidated balance sheet. Total assets: $50 billion.",
+            3: "Consolidated statement of operations. Total revenue: $20 billion.",
+        }
+
+        # Case 1: Text matches at annotated page 2 -> offset = 0
+        annotated_page = 2
+        query_snippet = "Consolidated balance sheet. Total assets: $50 billion."
+        best_page = None
+        for p_idx, text in pages.items():
+            if query_snippet in text:
+                best_page = p_idx
+                break
+        offset = best_page - annotated_page
+        self.assertEqual(offset, 0)
+
+        # Case 2: Text actually on page 3, but annotation says 2 -> offset = +1
+        annotated_page = 2
+        query_snippet = "Total revenue: $20 billion."
+        for p_idx, text in pages.items():
+            if query_snippet in text:
+                best_page = p_idx
+                break
+        offset = best_page - annotated_page
+        self.assertEqual(offset, 1)
+
+    def test_model_results_schema_and_label_validation(self):
+        # Simulated raw records from results/*.jsonl
+        sample_records = [
+            {
+                "financebench_id": "financebench_id_001",
+                "model_name": "gpt-4-1106-preview",
+                "eval_mode": "direct",
+                "temp": 0.0,
+                "question": "What is the net profit margin?",
+                "gold_answer": "12.5%",
+                "model_answer": "The net profit margin is 12.5%.",
+                "label": "Correct Answer",
+            },
+            {
+                "financebench_id": "financebench_id_002",
+                "model_name": "gpt-4-1106-preview",
+                "eval_mode": "direct",
+                "temp": 0.0,
+                "question": "What is the capital expenditure?",
+                "gold_answer": "$1.2B",
+                "model_answer": "I do not have sufficient information.",
+                "label": "Refusal",
+            },
+            {
+                "financebench_id": "financebench_id_003",
+                "model_name": "gpt-4-1106-preview",
+                "eval_mode": "direct",
+                "temp": 0.0,
+                "question": "What is the debt to equity ratio?",
+                "gold_answer": "1.8",
+                "model_answer": "0.4",
+                "label": "Incorrect Answer",
+            },
+        ]
+
+        expected_schema_keys = {
+            "financebench_id",
+            "model_name",
+            "eval_mode",
+            "temp",
+            "question",
+            "gold_answer",
+            "model_answer",
+            "label",
+        }
+
+        labels = []
+        seen_ids = set()
+        duplicates = 0
+        for rec in sample_records:
+            # Check schema keys
+            self.assertTrue(expected_schema_keys.issubset(rec.keys()))
+            fb_id = rec["financebench_id"]
+            if fb_id in seen_ids:
+                duplicates += 1
+            seen_ids.add(fb_id)
+            labels.append(rec["label"])
+
+        self.assertEqual(duplicates, 0)
+        self.assertEqual(len(seen_ids), 3)
+        self.assertEqual(labels.count("Correct Answer"), 1)
+        self.assertEqual(labels.count("Refusal"), 1)
+        self.assertEqual(labels.count("Incorrect Answer"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

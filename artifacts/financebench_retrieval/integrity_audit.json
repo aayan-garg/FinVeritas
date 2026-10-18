@@ -1,0 +1,427 @@
+{
+  "audit_metadata": {
+    "checkpoint": "Checkpoint 05B (FinanceBench Ground-Truth Integrity Audit)",
+    "benchmark_dataset": "PatronusAI/financebench (150-question open-source sample)",
+    "license": "CC BY-NC 4.0",
+    "date": "2026-10-18",
+    "evaluator": "FinVeritas Research Team"
+  },
+  "evidence_page_alignment_audit": {
+    "total_questions": 150,
+    "total_evidence_annotations": 189,
+    "validated_annotations_count": 189,
+    "uncertain_annotations_count": 0,
+    "unlocatable_annotations_count": 0,
+    "exact_offset_distribution": {
+      "0": 189
+    },
+    "status_breakdown": {
+      "validated_at_annotated_page": 189
+    },
+    "verdict": "Verified: All 189 evidence annotations align precisely with the 0-based page index of the extracted source PDFs (offset = 0 in 100.0% of evidence items). There is ZERO systematic page offset. The published 0-indexed schema is confirmed."
+  },
+  "human_annotated_model_outputs_audit": {
+    "files_count": 16,
+    "total_records": 2400,
+    "distinct_models": 16,
+    "distinct_questions": 150,
+    "duplicate_records": 0,
+    "missing_labels": 0,
+    "overall_label_distribution": {
+      "Incorrect Answer": 528,
+      "Correct Answer": 1135,
+      "Refusal": 737
+    },
+    "model_file_summaries": [
+      {
+        "model_config": "claude-2_inContext",
+        "filename": "claude-2_inContext.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Incorrect Answer": 91,
+          "Correct Answer": 56,
+          "Refusal": 3
+        }
+      },
+      {
+        "model_config": "claude-2_inContext_reverse",
+        "filename": "claude-2_inContext_reverse.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Correct Answer": 114,
+          "Incorrect Answer": 32,
+          "Refusal": 4
+        }
+      },
+      {
+        "model_config": "gpt-4-1106-preview_closedBook",
+        "filename": "gpt-4-1106-preview_closedBook.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Refusal": 131,
+          "Correct Answer": 14,
+          "Incorrect Answer": 5
+        }
+      },
+      {
+        "model_config": "gpt-4-1106-preview_inContext",
+        "filename": "gpt-4-1106-preview_inContext.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Refusal": 59,
+          "Correct Answer": 37,
+          "Incorrect Answer": 54
+        }
+      },
+      {
+        "model_config": "gpt-4-1106-preview_inContext_reverse",
+        "filename": "gpt-4-1106-preview_inContext_reverse.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Refusal": 6,
+          "Correct Answer": 118,
+          "Incorrect Answer": 26
+        }
+      },
+      {
+        "model_config": "gpt-4-1106-preview_oracle",
+        "filename": "gpt-4-1106-preview_oracle.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Correct Answer": 128,
+          "Incorrect Answer": 22
+        }
+      },
+      {
+        "model_config": "gpt-4-1106-preview_oracle_reverse",
+        "filename": "gpt-4-1106-preview_oracle_reverse.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Correct Answer": 134,
+          "Incorrect Answer": 14,
+          "Refusal": 2
+        }
+      },
+      {
+        "model_config": "gpt-4-1106-preview_sharedStore",
+        "filename": "gpt-4-1106-preview_sharedStore.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Refusal": 101,
+          "Correct Answer": 29,
+          "Incorrect Answer": 20
+        }
+      },
+      {
+        "model_config": "gpt-4-1106-preview_singleStore",
+        "filename": "gpt-4-1106-preview_singleStore.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Refusal": 58,
+          "Incorrect Answer": 17,
+          "Correct Answer": 75
+        }
+      },
+      {
+        "model_config": "gpt-4_closedBook",
+        "filename": "gpt-4_closedBook.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Refusal": 142,
+          "Correct Answer": 7,
+          "Incorrect Answer": 1
+        }
+      },
+      {
+        "model_config": "gpt-4_oracle",
+        "filename": "gpt-4_oracle.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Correct Answer": 126,
+          "Incorrect Answer": 15,
+          "Refusal": 9
+        }
+      },
+      {
+        "model_config": "gpt-4_oracle_reverse",
+        "filename": "gpt-4_oracle_reverse.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Refusal": 15,
+          "Correct Answer": 118,
+          "Incorrect Answer": 17
+        }
+      },
+      {
+        "model_config": "gpt-4_sharedStore",
+        "filename": "gpt-4_sharedStore.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Refusal": 112,
+          "Correct Answer": 25,
+          "Incorrect Answer": 13
+        }
+      },
+      {
+        "model_config": "gpt-4_singleStore",
+        "filename": "gpt-4_singleStore.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Refusal": 71,
+          "Incorrect Answer": 16,
+          "Correct Answer": 63
+        }
+      },
+      {
+        "model_config": "llama2_sharedStore",
+        "filename": "llama2_sharedStore.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Incorrect Answer": 104,
+          "Correct Answer": 29,
+          "Refusal": 17
+        }
+      },
+      {
+        "model_config": "llama2_singleStore",
+        "filename": "llama2_singleStore.jsonl",
+        "row_count": 150,
+        "unique_questions": 150,
+        "duplicates": 0,
+        "missing_labels": 0,
+        "labels": {
+          "Incorrect Answer": 81,
+          "Correct Answer": 62,
+          "Refusal": 7
+        }
+      }
+    ]
+  },
+  "sample_evidence_verifications": [
+    {
+      "financebench_id": "financebench_id_03029",
+      "evidence_idx": 0,
+      "doc_name": "3M_2018_10K",
+      "annotated_page": 59,
+      "validated_page": 59,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_04672",
+      "evidence_idx": 0,
+      "doc_name": "3M_2018_10K",
+      "annotated_page": 57,
+      "validated_page": 57,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_00499",
+      "evidence_idx": 0,
+      "doc_name": "3M_2022_10K",
+      "annotated_page": 47,
+      "validated_page": 47,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_00499",
+      "evidence_idx": 1,
+      "doc_name": "3M_2022_10K",
+      "annotated_page": 49,
+      "validated_page": 49,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_00499",
+      "evidence_idx": 2,
+      "doc_name": "3M_2022_10K",
+      "annotated_page": 51,
+      "validated_page": 51,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_01226",
+      "evidence_idx": 0,
+      "doc_name": "3M_2022_10K",
+      "annotated_page": 26,
+      "validated_page": 26,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_01865",
+      "evidence_idx": 0,
+      "doc_name": "3M_2022_10K",
+      "annotated_page": 24,
+      "validated_page": 24,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_00807",
+      "evidence_idx": 0,
+      "doc_name": "3M_2023Q2_10Q",
+      "annotated_page": 4,
+      "validated_page": 4,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_00941",
+      "evidence_idx": 0,
+      "doc_name": "3M_2023Q2_10Q",
+      "annotated_page": 0,
+      "validated_page": 0,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_01858",
+      "evidence_idx": 0,
+      "doc_name": "3M_2023Q2_10Q",
+      "annotated_page": 61,
+      "validated_page": 61,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_02987",
+      "evidence_idx": 0,
+      "doc_name": "ACTIVISIONBLIZZARD_2019_10K",
+      "annotated_page": 68,
+      "validated_page": 68,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_02987",
+      "evidence_idx": 1,
+      "doc_name": "ACTIVISIONBLIZZARD_2019_10K",
+      "annotated_page": 69,
+      "validated_page": 69,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 0.9869,
+      "best_score": 0.9869,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_07966",
+      "evidence_idx": 0,
+      "doc_name": "ACTIVISIONBLIZZARD_2019_10K",
+      "annotated_page": 69,
+      "validated_page": 69,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 0.9869,
+      "best_score": 0.9869,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_07966",
+      "evidence_idx": 1,
+      "doc_name": "ACTIVISIONBLIZZARD_2019_10K",
+      "annotated_page": 72,
+      "validated_page": 72,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    },
+    {
+      "financebench_id": "financebench_id_04735",
+      "evidence_idx": 0,
+      "doc_name": "ADOBE_2015_10K",
+      "annotated_page": 58,
+      "validated_page": 58,
+      "offset": 0,
+      "exact_substring_match": true,
+      "annotated_score": 1.0,
+      "best_score": 1.0,
+      "status": "validated_at_annotated_page"
+    }
+  ]
+}

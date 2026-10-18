@@ -43,6 +43,8 @@ artifacts/initial_baseline/*
 artifacts/financebench_retrieval/*
 !artifacts/financebench_retrieval/metrics.json
 !artifacts/financebench_retrieval/config.json
+!artifacts/financebench_retrieval/integrity_audit.json
+!artifacts/financebench_retrieval/metrics_revalidated.json
 
 # Builds & Packaging
 build/
