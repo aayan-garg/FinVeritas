@@ -45,6 +45,10 @@ artifacts/financebench_retrieval/*
 !artifacts/financebench_retrieval/config.json
 !artifacts/financebench_retrieval/integrity_audit.json
 !artifacts/financebench_retrieval/metrics_revalidated.json
+!artifacts/answer_quality/
+artifacts/answer_quality/*
+!artifacts/answer_quality/metrics.json
+!artifacts/answer_quality/config.json
 
 # Builds & Packaging
 build/

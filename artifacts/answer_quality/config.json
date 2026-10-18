@@ -1,0 +1,56 @@
+{
+  "task": "financial_answer_quality_classification",
+  "description": "Multi-class classification of financial model answers into 'correct', 'incorrect', and 'refusal' using 5-fold grouped cross-validation.",
+  "dataset": {
+    "source": "PatronusAI/financebench (results/ directory)",
+    "total_records": 2400,
+    "unique_question_groups": 150,
+    "classes": [
+      "correct",
+      "incorrect",
+      "refusal"
+    ],
+    "label_distribution": {
+      "correct": 1135,
+      "incorrect": 528,
+      "refusal": 737
+    }
+  },
+  "validation_strategy": {
+    "type": "StratifiedGroupKFold",
+    "n_splits": 5,
+    "grouping_key": "financebench_id",
+    "random_state": 42,
+    "leakage_prevention": "Zero question-ID overlap asserted across all folds. No gold reference answers, evidence text, or page annotations exposed to models."
+  },
+  "model_configurations": {
+    "majority": {
+      "type": "MajorityClassPredictor",
+      "predicted_class": "correct"
+    },
+    "question_only": {
+      "type": "LogisticRegression",
+      "input_features": "question_text",
+      "vectorizer": "FeatureUnion(Word_TFIDF(1,2) + Char_TFIDF(3,5))",
+      "class_weight": "balanced",
+      "max_iter": 1000,
+      "C": 1.0
+    },
+    "answer_only": {
+      "type": "LogisticRegression",
+      "input_features": "model_answer_text",
+      "vectorizer": "FeatureUnion(Word_TFIDF(1,2) + Char_TFIDF(3,5))",
+      "class_weight": "balanced",
+      "max_iter": 1000,
+      "C": 1.0
+    },
+    "question_plus_answer": {
+      "type": "LogisticRegression",
+      "input_features": "question_text + model_answer_text",
+      "vectorizer": "FeatureUnion(Word_TFIDF(1,2) + Char_TFIDF(3,5))",
+      "class_weight": "balanced",
+      "max_iter": 1000,
+      "C": 1.0
+    }
+  }
+}
