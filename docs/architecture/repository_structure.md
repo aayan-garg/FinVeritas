@@ -27,7 +27,8 @@ To prevent architectural debt, all codebase components adhere to a strict `src/`
 | **`src/finveritas/verification/`** | Numerical calculation validation, sandboxed Python code execution for financial formulas, NLI entailment scoring. | SymPy, PyTorch/NLI models | Ingestion logic, presentation endpoints |
 | **`src/finveritas/api/`** | CLI entry points, FastAPI/REST services, input validation schemas. | `finveritas.*` subsystems | Heavy ML training loops, internal database manipulations |
 | **`scripts/`** | Thin command-line runners and utilities. | `src.finveritas` | Standalone, duplicated business logic |
-| **`tests/`** | Automated unit and integration tests. | Standard library unittest, pytest | Non-test production code |
+| **`experiments/`** | Isolated research experiments and legacy spikes (`experiments/legacy/`). | Standalone research scripts | Direct import by production code, inclusion in default test suites |
+| **`tests/`** | Automated unit and integration tests. | Standard library unittest, pytest | Non-test production code, legacy spike validation |
 | **`docs/`** | Architectural specifications, ADRs, and research documentation. | Markdown | Executable Python binaries |
 | **`data/`** | `raw/`, `interim/`, `processed/` data tiers. | Excluded from Git via `.gitignore` | Checked-in production datasets |
 | **`artifacts/`** | Generated experiment runs, predictions, confusion matrices. | Excluded from Git via `.gitignore` | Checked-in large binary artifacts |

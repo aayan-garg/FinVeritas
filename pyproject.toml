@@ -10,21 +10,12 @@ readme = "README.md"
 authors = [{ name = "FinVeritas Engineering Team" }]
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
-dependencies = [
-    "torch>=2.0.0",
-    "transformers>=4.40.0",
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
-    "scikit-learn>=1.2.0",
-    "pyarrow>=14.0.0",
-    "pydantic>=2.0.0",
-    "python-dotenv>=1.0.0",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
+    "ruff>=0.4.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -33,5 +24,17 @@ where = ["src"]
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
-pythonpath = ["src", "."]
+pythonpath = ["src"]
 addopts = "-v"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [
+    ".venv",
+    "experiments/legacy",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = []
