@@ -24,6 +24,20 @@ if TYPE_CHECKING:
         audit_parquet_dataset,
         download_evasionbench_parquet,
     )
+    from finveritas.nlp_evasion.transformer_classifier import (
+        DEFAULT_MAX_LENGTH,
+        DEFAULT_MODEL_NAME,
+        DISCLAIMER_TEXT,
+        EvasionQAPairDataset,
+        TransformerModelMetrics,
+        collate_qa_batch,
+        compute_metrics,
+        evaluate_transformer_model,
+        load_and_split_evasion_data,
+        predict_evasion_transformer,
+        run_forward_backward_smoke_test,
+        train_transformer_model,
+    )
 
 __all__ = [
     # Dataset Audit
@@ -41,7 +55,35 @@ __all__ = [
     "predict_evasion",
     "run_baseline_experiments",
     "train_and_save_baseline_model",
+    # Transformer Evasion
+    "DEFAULT_MAX_LENGTH",
+    "DEFAULT_MODEL_NAME",
+    "DISCLAIMER_TEXT",
+    "EvasionQAPairDataset",
+    "TransformerModelMetrics",
+    "collate_qa_batch",
+    "compute_metrics",
+    "evaluate_transformer_model",
+    "load_and_split_evasion_data",
+    "predict_evasion_transformer",
+    "run_forward_backward_smoke_test",
+    "train_transformer_model",
 ]
+
+_TRANSFORMER_EXPORTS = {
+    "DEFAULT_MAX_LENGTH",
+    "DEFAULT_MODEL_NAME",
+    "DISCLAIMER_TEXT",
+    "EvasionQAPairDataset",
+    "TransformerModelMetrics",
+    "collate_qa_batch",
+    "compute_metrics",
+    "evaluate_transformer_model",
+    "load_and_split_evasion_data",
+    "predict_evasion_transformer",
+    "run_forward_backward_smoke_test",
+    "train_transformer_model",
+}
 
 
 def __getattr__(name: str):
@@ -68,4 +110,8 @@ def __getattr__(name: str):
         from finveritas.nlp_evasion import baselines
 
         return getattr(baselines, name)
+    if name in _TRANSFORMER_EXPORTS:
+        from finveritas.nlp_evasion import transformer_classifier
+
+        return getattr(transformer_classifier, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

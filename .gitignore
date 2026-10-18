@@ -39,6 +39,10 @@ artifacts/initial_baseline/*
 !artifacts/initial_baseline/metrics.json
 !artifacts/initial_baseline/config.json
 !artifacts/initial_baseline/confusion_matrix.json
+!artifacts/transformer_nlp/
+artifacts/transformer_nlp/*
+!artifacts/transformer_nlp/metrics.json
+!artifacts/transformer_nlp/config.json
 
 # Builds & Packaging
 build/
