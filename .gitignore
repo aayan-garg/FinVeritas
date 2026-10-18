@@ -34,6 +34,13 @@ checkpoints/
 artifacts/*
 !artifacts/.gitkeep
 
+# Builds & Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
 # IDE & OS
 .vscode/
 .idea/

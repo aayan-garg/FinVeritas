@@ -5,8 +5,15 @@ Verifies schema compliance, class weight calculation, memory safety bounds, and 
 
 import unittest
 import torch
-import numpy as np
-from train_baseline import compute_class_weights, evaluate_predictions, LABEL2ID, ID2LABEL, get_training_args
+import sys
+from pathlib import Path
+
+# Add repo root to sys.path so scripts can be imported cleanly
+repo_root = Path(__file__).resolve().parents[2]
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
+from scripts.train_baseline import compute_class_weights, evaluate_predictions, LABEL2ID, ID2LABEL, get_training_args
 
 class TestFinVeritasBaseline(unittest.TestCase):
     
