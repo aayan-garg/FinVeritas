@@ -10,6 +10,7 @@ Tests:
 
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 
@@ -182,3 +183,63 @@ class TestNLPShortcutAudit(unittest.TestCase):
         self.assertIn("intermediate", weights)
         self.assertIn("fully_evasive", weights)
         self.assertGreater(weights["fully_evasive"], weights["direct"])
+
+    def test_shortcut_audit_metrics_consistency_and_report_integrity(self):
+        metrics_file = Path("artifacts/nlp_shortcut_audit/metrics.json")
+        if not metrics_file.is_file():
+            self.skipTest("artifacts/nlp_shortcut_audit/metrics.json not found.")
+
+        with open(metrics_file, "r", encoding="utf-8") as f:
+            metrics_data = json.load(f)
+
+        # 1. Verify input ablation metrics consistency
+        ablations = metrics_data["experiment_1_input_ablations"]
+        qa_metrics = ablations["model_c_question_and_answer_384"]
+        a_metrics = ablations["model_b_answer_only_384"]
+        q_metrics = ablations["model_a_question_only_384"]
+
+        # Question-only minority class collapse on this setup
+        self.assertEqual(q_metrics["per_class"]["fully_evasive"]["recall"], 0.0)
+        self.assertEqual(q_metrics["per_class"]["fully_evasive"]["f1"], 0.0)
+        # But non-zero on direct and intermediate
+        self.assertGreater(q_metrics["per_class"]["direct"]["f1"], 0.60)
+        self.assertGreater(q_metrics["per_class"]["intermediate"]["f1"], 0.60)
+
+        # Answer-only macro-F1 is higher than QA macro-F1
+        self.assertGreater(a_metrics["macro_f1"], qa_metrics["macro_f1"])
+
+        # QA fully-evasive recall is higher than answer-only fully-evasive recall (trade-off)
+        self.assertGreater(
+            qa_metrics["per_class"]["fully_evasive"]["recall"],
+            a_metrics["per_class"]["fully_evasive"]["recall"],
+        )
+        self.assertAlmostEqual(
+            qa_metrics["per_class"]["fully_evasive"]["recall"], 78 / 124, places=3
+        )
+        self.assertAlmostEqual(
+            a_metrics["per_class"]["fully_evasive"]["recall"], 61 / 124, places=3
+        )
+
+        # 2. Verify report file exists and contains scientific qualifications
+        report_path = Path("docs/research/nlp_shortcut_audit.md")
+        self.assertTrue(report_path.is_file())
+        report_text = report_path.read_text(encoding="utf-8")
+
+        # Discredited phrasing must not be present
+        self.assertNotIn("acts as a distractor during fine-tuning", report_text)
+        self.assertNotIn("The Question Contains Zero Evasion Signal", report_text)
+        self.assertNotIn("accounts for approximately 10.9 F1 points", report_text)
+
+        # Required scientific interpretations must be present
+        expected_tradeoff = (
+            "trade-off between aggregate classification performance and "
+            "evasive-example sensitivity"
+        )
+        self.assertIn(expected_tradeoff, report_text)
+        self.assertIn("distinct evaluation populations", report_text)
+        self.assertIn("pseudo-labels", report_text)
+
+        # 3. Verify errata document exists
+        errata_path = Path("docs/research/nlp_shortcut_audit_errata.md")
+        self.assertTrue(errata_path.is_file())
+

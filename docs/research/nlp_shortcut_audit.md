@@ -5,6 +5,7 @@
 - **Status:** Complete, Measured & Verified (NVIDIA RTX 3050 CUDA Accelerated)
 - **Author:** FinVeritas Engineering Team
 - **Base Commit:** `96f1c00` (`checkpoint/05-nlp-fair-benchmark`)
+- **Revision Note (Checkpoint 06A):** Scientific interpretation revised per [nlp_shortcut_audit_errata.md](file:///docs/research/nlp_shortcut_audit_errata.md) to qualify input-ablation trade-offs, scope claims to the evaluated configuration/pseudo-label setup, and account for population distribution shift across splits without asserting direct causal memorization claims.
 
 ---
 
@@ -12,21 +13,23 @@
 
 Before adding architectural complexity to the NLP evasion classification pipeline, Checkpoint 06 investigates a fundamental question of model validity: **Does the evasion classifier genuinely learn the semantic relationship between the analyst's question and the executive's answer, or does it exploit generic corporate answer templates and unilateral linguistic shortcuts?**
 
-Through three empirical experiments—input ablations (Question-Only vs. Answer-Only vs. Question+Answer), answer-template leakage diagnostics, and strict answer-disjoint group-stratified evaluation—we arrive at three decisive findings:
+Through three empirical experiments—input ablations (Question-Only vs. Answer-Only vs. Question+Answer), answer-template leakage diagnostics, and strict answer-disjoint group-stratified evaluation—we arrive at three refined findings:
 
-1. **The Question Contains Zero Evasion Signal:**
-   - A Question-Only DeBERTa-v3 model completely collapses on the minority evasion class: **0.00% precision, 0.00% recall, 0.0000 F1** (0 out of 124 evasive test instances detected), dropping Macro-F1 to **0.4193**.
-   - This empirically confirms that evasion is not an artifact of question phrasing or analyst identity; questions alone cannot predict whether an executive will be evasive.
+1. **Question-Only Model Collapses on Fully-Evasive in the Evaluated Configuration:**
+   - In the evaluated configuration, a Question-Only DeBERTa-v3 model completely collapses on the minority evasion class: **0.00% precision, 0.00% recall, 0.0000 F1** (0 out of 124 evasive test instances detected), dropping Macro-F1 to **0.4193**.
+   - This finding demonstrates that questions alone cannot predict whether an executive will be evasive under this specific training setup and model architecture. However, this does not establish that questions contain zero predictive information across all classes or models: Question-Only achieves **64.45% F1 on `direct`** and **61.35% F1 on `intermediate`** (overall accuracy **61.81%**), confirming non-random predictive structure across majority classes.
 
-2. **Answer-Only Outperforms Question+Answer (Statistically Significant):**
-   - Evaluating solely on executive answers without seeing the analyst question achieves **67.51% Accuracy** and **0.6251 Macro-F1**, outperforming the full Question+Answer model (**63.87% Accuracy, 0.5959 Macro-F1**) by **+3.64% Accuracy** and **+0.0292 Macro-F1**.
-   - Paired 1,000-resample bootstrap significance testing yields a 95% confidence interval of `[+0.0044, +0.0510]` ($p = \mathbf{0.008}$), establishing that the Answer-Only model's superiority is statistically significant.
-   - The question text acts as a distractor during fine-tuning, introducing gradient noise without contributing discriminative signal for evasion classification.
+2. **Trade-Off Between Aggregate Performance and Evasive-Example Sensitivity:**
+   - Answer-Only achieved higher overall Macro-F1 than Question+Answer on the existing held-out test set (**0.6251 vs. 0.5959**, $+0.0292$, paired bootstrap $p = \mathbf{0.008}$, 95% CI `[+0.0044, +0.0510]`), along with higher overall Accuracy (**67.51% vs. 63.87%**).
+   - However, Question+Answer achieved substantially higher fully-evasive recall: **62.90% (78/124)** compared with **49.19% (61/124)** for Answer-Only (+13.71% recall advantage; 17 additional evasive instances identified).
+   - Answer-Only and Question+Answer therefore exhibit an empirical trade-off between aggregate classification performance (where Answer-Only yields higher macro-averaged performance and cleaner non-evasive predictions) and evasive-example sensitivity (where Question+Answer captures significantly more minority evasive instances).
+   - Question text cannot be described as a universal distractor; its behavior and interactions are strictly limited to this specific model, training setup, and evaluation population.
+   - Crucially, these results reflect agreement with model-generated pseudo-labels (`eva4b_label`), not independent human validation of evasiveness.
 
-3. **Corporate Answer Templates Inflate Apparent Evasion Performance:**
+3. **Answer-Template Leakage Diagnostics & Split Population Differences:**
    - On the standard question-disjoint split, 32 unique normalized answers cross from training into test (affecting 35 test samples, 1.05% of test data) with a **97.14% label agreement rate**.
-   - When evaluating on a **strict normalized-answer-disjoint split** (where zero identical answers can cross partitions), the Question+Answer model's Fully-Evasive F1 drops precipitously from **0.5065 down to 0.3977** (recall plummets from **62.90% to 28.23%**, catching only 35 of 124 evasive cases).
-   - Memorization of formulaic corporate answer templates accounts for approximately **10.9 F1 points** of apparent evasion detection capability.
+   - When evaluating on a **strict normalized-answer-disjoint split** (where zero identical answers cross partitions), the Question+Answer model obtains a Fully-Evasive F1 of **0.3977** (recall: **28.23%**, 35 of 124 evasive cases detected), compared with **0.5065** (recall: **62.90%**) on the question-disjoint test set.
+   - The standard question-disjoint and strict answer-disjoint splits constitute mathematically distinct evaluation populations with different test samples. While the observed difference is consistent with a shortcut-learning concern, it does not isolate its causal contribution from general population distribution shifts. Claims that approximately 10.9 F1 points of apparent capability were directly caused by memorization must be qualified accordingly.
 
 ### ⚠️ Essential Scientific & Methodological Disclaimers
 1. **Model-Generated Pseudo-Labels:** All ground-truth targets (`eva4b_label`) in EvasionBench are **pseudo-labels generated by Eva-4B-V2** (arXiv:2601.09142), not human consensus annotations. High classification performance reflects alignment with Eva-4B-V2's scoring behavior rather than validated human judgments of evasion.
@@ -86,7 +89,7 @@ To verify that performance differences on the identical 3,346 test examples are 
 | | Fully-Evasive F1 | -0.5055 | `[-0.5698, -0.4350]` | $p = 1.000$ | Complete Minority Collapse |
 | **Question-Only vs Answer-Only** | Macro-F1 | -0.2050 | `[-0.2356, -0.1755]` | $p = 1.000$ | Highly Significant Degradation |
 
-**Empirical Conclusion:** The superiority of the **Answer-Only** model over the Question+Answer model in Macro-F1 is statistically significant at $p = 0.008$. The lower bound of the 95% CI is $+0.0044$, confirming that omitting the analyst's question genuinely improves overall classification accuracy and class-balanced performance.
+**Empirical Conclusion:** Answer-Only achieved higher overall Macro-F1 than Question+Answer on the existing held-out test set ($p = \mathbf{0.008}$, 95% CI `[+0.0044, +0.0510]`). However, Question+Answer achieved higher fully-evasive recall (62.90% vs. 49.19%, catching 78 vs. 61 evasive examples). Answer-Only and Question+Answer therefore exhibit an empirical trade-off between aggregate classification performance and evasive-example sensitivity on this held-out test set. Question text cannot be characterized as a universal distractor; its effect is limited to this model, training setup, and evaluation population. Furthermore, Question-Only obtaining 0 recall and 0 F1 on `fully_evasive` in the evaluated configuration does not establish that questions contain zero predictive information across all classes or models (it achieves 64.45% F1 on `direct` and 61.35% F1 on `intermediate`). Finally, all reported metrics reflect agreement with Eva-4B-V2 pseudo-labels rather than independent human validation of evasiveness.
 
 ---
 
@@ -125,11 +128,12 @@ Total (Predicted):    1,018       2,144             184             3,346
 ```
 
 ### 3.2 Error Diagnostic Observations
-1. **Question-Only Degeneracy:** When fed only the question, the network never predicts `fully_evasive` a single time across 3,346 test examples. The model splits predictions between `direct` and `intermediate`, capturing the prior class balance but completely failing on evasiveness.
-2. **Answer-Only Precision vs QA Recall Trade-Off:**
-   - The Answer-Only model achieves **54.46% Precision** on `fully_evasive` (61 true evasions out of 112 predicted, with only 51 false positives).
-   - In contrast, the QA model achieves **62.90% Recall** (catching 78 evasions), but its precision is lower at **42.39%** (106 false positives).
-   - The Answer-Only model is dramatically cleaner on non-evasive answers, misclassifying only 14 `direct` answers as `fully_evasive` (compared to 26 for the QA model).
+1. **Question-Only Minority Class Behavior:** When fed only the question in the evaluated configuration, the network never predicts `fully_evasive` across the 3,346 test examples (0 recall, 0 F1). The model predicts only `direct` and `intermediate`, capturing the prior class balance between those two majority categories (64.45% and 61.35% F1 respectively). This reflects a failure to detect evasiveness from questions alone under this training setup and model architecture, but does not imply that questions contain zero predictive signal across all classes or models.
+2. **Answer-Only vs. Question+Answer Trade-Off:**
+   - The Answer-Only model achieves **54.46% Precision** on `fully_evasive` (61 true evasions out of 112 predicted, with only 51 false positives) and higher overall Macro-F1 (**0.6251**).
+   - In contrast, the Question+Answer model achieves higher **Recall** on `fully_evasive`: **62.90%** (catching 78 evasions out of 124, compared with 49.19% for Answer-Only), with precision at **42.39%** (106 false positives).
+   - Answer-Only and Question+Answer therefore exhibit an operational trade-off: Answer-Only provides cleaner predictions on non-evasive answers (misclassifying only 14 `direct` answers as `fully_evasive`, compared to 26 for QA), whereas Question+Answer captures 17 additional genuine evasive examples (+13.71% relative recall).
+   - Both results represent agreement with Eva-4B-V2 pseudo-labels, rather than independent human validation of evasiveness.
 
 ---
 
@@ -149,9 +153,11 @@ While the original partitioning strictly enforced **zero normalized-question ove
 
 ### 4.2 Performance by Answer Familiarity (Overlapping vs. Unseen)
 
-To determine whether memorization of overlapping answers distorts test metrics, we partitioned the 3,346 test samples into:
+To examine whether answer familiarity influences performance on identical answer phrases within the canonical question-disjoint test set, we partitioned the 3,346 test samples into:
 - **Overlapping Answers ($N=35$):** Normalized answers present in the training set.
 - **Unseen Answers ($N=3,311$):** Normalized answers never seen during training.
+
+*(Note: This intra-split subset analysis evaluates familiar vs. unseen answer strings within the same test population, distinct from Experiment 3's cross-population split comparison.)*
 
 | Model | Evaluation Cohort | Sample Size | Accuracy | Macro-F1 | Direct F1 | Intermediate F1 | Fully-Evasive F1 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -164,7 +170,7 @@ To determine whether memorization of overlapping answers distorts test metrics, 
 | **Question-Only (384)** | **Overlapping Answers** | 35 | 54.29% | 0.3595 | 0.6341 | 0.4444 | 0.0000 |
 | | **Unseen Answers** | 3,311 | 61.88% | 0.4199 | 0.6447 | 0.6149 | 0.0000 |
 
-**Finding:** The Answer-Only model shows a massive **+15.51% accuracy surge** (82.86% vs 67.35%) and a **+0.1479 Macro-F1 boost** on answers that appeared in the training set. Even though overlapping answers comprise only 1.05% of the test set, their near-perfect label consistency ($97.14\%$) acts as an exact memorization shortcut for answer-centric models.
+**Finding:** Within this test set, the Answer-Only model shows a **+15.51% accuracy surge** (82.86% vs 67.35%) and a **+0.1479 Macro-F1 boost** on the 35 answer instances that appeared in the training set. Even though overlapping answers comprise only 1.05% of the test set, their near-perfect label consistency ($97.14\%$) allows answer-centric models to benefit from familiar phrasing shortcuts on these specific recurring items.
 
 ### 4.3 Frequent Formulaic Answer Templates & Label Distributions
 
@@ -191,7 +197,7 @@ These formulaic templates provide clear, high-confidence shortcuts for LLM pseud
 
 ## 5. Experiment 3: Strict Normalized-Answer-Disjoint Evaluation
 
-To evaluate model robustness when no answer templates can be memorized across splits, we engineered a **strict normalized-answer-disjoint split** using `StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)` grouped strictly by normalized answer.
+To evaluate model robustness when identical answer templates are prevented from crossing splits, we engineered a **strict normalized-answer-disjoint split** using `StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)` grouped strictly by normalized answer.
 
 ### 5.1 Partition Verification & Group Statistics
 
@@ -212,7 +218,7 @@ To evaluate model robustness when no answer templates can be memorized across sp
 
 We trained the Question+Answer DeBERTa-v3 model on this strict answer-disjoint partition for 1 epoch using the exact identical training configuration.
 
-> ⚠️ **Methodological Notice:** The two test sets represent distinct evaluation populations. These metrics must not be conflated as identical test distributions.
+> ⚠️ **Methodological Notice:** The standard question-disjoint test set and the strict answer-disjoint test set constitute distinct evaluation populations with different sample subsets. Metric differences between them reflect both the elimination of overlapping answer strings and broader population distribution shifts; they should not be treated as a direct causal measurement of memorization.
 
 | Evaluation Dimension | Existing Question-Disjoint Test Set | Strict Answer-Disjoint Test Set | Observable Difference |
 | :--- | :--- | :--- | :--- |
@@ -240,7 +246,11 @@ Total (Predicted):    2,174       1,120              52             3,346
 ### 5.4 Root Cause Analysis: The Cost of Disjoint Answers
 1. **The Collapse of Evasion Recall:** When trained without overlapping answer templates, the classifier becomes far more conservative in flagging evasiveness. It predicts `fully_evasive` only 52 times (down from 184 times in the standard split).
 2. **Precision vs. Recall Inversion:** Precision on `fully_evasive` jumps from **42.39% to 67.31%**, but recall plummets from **62.90% down to 28.23%**. Over 71.7% of genuine evasions are misclassified as either `intermediate` (64 cases) or `direct` (25 cases).
-3. **Template Memorization Impact:** The **10.88-point drop in Fully-Evasive F1** reveals that approximately one-fifth of the model's apparent evasion-detection capability on standard benchmarks stemmed from recurring corporate answer patterns rather than robust semantic generalization.
+3. **Population Distribution Shift vs. Shortcut Exploitation:**
+   - The Fully-Evasive F1 of the Question+Answer model drops from **0.5065** on the question-disjoint split to **0.3977** on the strict answer-disjoint split (-0.1088 delta; -21.5% relative).
+   - Crucially, the standard question-disjoint and strict answer-disjoint splits constitute distinct test populations, formed by grouping on different columns (`normalized_question` vs. `normalized_answer`).
+   - While this observed degradation is consistent with a shortcut-learning concern (where models may leverage recurring answer phrasing), because the two evaluation populations differ, this comparison does not isolate the causal contribution of memorization from sampling and distribution shifts across populations.
+   - Claims that approximately 10.9 F1 points of apparent capability were directly caused by memorization must therefore be qualified: the observed degradation highlights the pipeline's sensitivity to partitioning boundaries and potential answer shortcuts, but does not prove a direct 10.9-point causal effect. Both split results and descriptions are preserved as vital robustness benchmarks.
 
 ---
 
@@ -249,11 +259,12 @@ Total (Predicted):    2,174       1,120              52             3,346
 1. **Eva-4B-V2 Pseudo-Label Target:** All classification targets evaluated across this checkpoint and prior checkpoints are pseudo-labels generated by Eva-4B-V2 (a 4-billion parameter Qwen2.5-based fine-tune). They do not represent human consensus.
 2. **LLM Inductive Bias Amplification:** Because Eva-4B-V2 was prompted with transcript turns to assign evasion labels, its own judgments likely relied on corporate linguistic markers (e.g., hedge phrases, vague qualifiers, polite deflections). A downstream DeBERTa model trained on these labels naturally excels by detecting those same surface markers in the answer text.
 3. **Absence of Grounded Document Context:** Neither the question nor the answer contains the underlying financial reality. An executive may provide a smooth, seemingly complete answer that is factually evasive relative to SEC filings or financial statements. True evasion detection requires cross-referencing earnings call claims against source filings (10-K, 10-Q), which is the objective of the downstream FinVeritas RAG pipeline.
+4. **Distinct Evaluation Populations & Causal Limits:** The standard question-disjoint ($N=3,346$) and strict answer-disjoint ($N=3,346$) test sets represent mathematically distinct sample populations. Observed score differences across these two splits reflect both partition distribution shift and shortcut mitigation; they cannot be treated as an isolated causal measurement of memorization.
 
 ---
 
 ## 7. Conclusions & Strategic Recommendations for FinVeritas
 
-1. **Retain Question+Answer Architecture for Downstream Verification:** While Answer-Only yields higher standalone pseudo-label F1 scores (+0.0292 Macro-F1), discarding the question is conceptually untenable for a downstream retrieval-augmented financial fact-checking system. Without the question, the system cannot determine what information was requested, what claims require verification, or what SEC filings must be retrieved.
-2. **De-bias Answer Shortcuts via Strict Disjoint Splitting:** Future model development and benchmark evaluations should report performance on the **strict normalized-answer-disjoint split** to avoid reporting inflated metrics driven by formulaic template memorization.
+1. **Retain Question+Answer Architecture for Downstream Verification:** While Answer-Only yields higher standalone pseudo-label F1 scores (+0.0292 Macro-F1), discarding the question is conceptually untenable for a downstream retrieval-augmented financial fact-checking system. Without the question, the system cannot determine what information was requested, what claims require verification, or what SEC filings must be retrieved. Furthermore, Question+Answer retains significantly higher fully-evasive recall (62.90% vs 49.19%), providing essential sensitivity to rare evasion events.
+2. **Dual-Split Robustness Reporting:** Because the standard question-disjoint and strict answer-disjoint splits evaluate different test populations, future model evaluations should report performance on both splits. The strict answer-disjoint split serves as a stringent robustness check against potential answer-template reliance, while the canonical question-disjoint split maintains continuity with established baselines. Rather than asserting that the ~10.9 F1 point divergence directly measures template memorization, researchers should interpret it as evidence of model sensitivity to partitioning design and shortcut vulnerability.
 3. **Transition to Claim Extraction & Grounded Retrieval:** NLP evasion classification on pseudo-labels has reached its methodological limit (~0.60–0.63 Macro-F1, ~0.40–0.51 Evasive F1). The next major capability enhancement must focus on **claim extraction and multi-hop retrieval over financial filings** to verify whether answers are factually responsive rather than merely linguistically evasive.
