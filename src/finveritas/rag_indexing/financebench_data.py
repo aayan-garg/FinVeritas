@@ -257,15 +257,72 @@ def extract_pdf_pages(
     return items
 
 
+def save_page_corpus(corpus: list[PageCorpusItem], cache_path: Path) -> None:
+    """Saves extracted page corpus to JSONL cache for fast reloads."""
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = cache_path.with_suffix(f"{cache_path.suffix}.tmp")
+    with open(temp_path, "w", encoding="utf-8") as f:
+        for item in corpus:
+            f.write(json.dumps(dataclasses.asdict(item)) + "\n")
+    temp_path.replace(cache_path)
+    logger.info(f"Saved {len(corpus)} pages to cache: {cache_path}")
+
+
+def load_page_corpus(cache_path: Path) -> list[PageCorpusItem]:
+    """Loads page corpus from JSONL cache."""
+    if not cache_path.is_file():
+        raise FileNotFoundError(f"Corpus cache not found: {cache_path}")
+    items: list[PageCorpusItem] = []
+    with open(cache_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line_str = line.strip()
+            if not line_str:
+                continue
+            data = json.loads(line_str)
+            items.append(PageCorpusItem(**data))
+    logger.info(f"Loaded {len(items)} pages from cache: {cache_path}")
+    return items
+
+
+def _extract_single_doc_worker(
+    args: tuple[str, Path, str],
+) -> tuple[str, list[dict[str, Any]], str | None]:
+    doc_name, pdf_path, doc_link = args
+    try:
+        pages = extract_pdf_pages(pdf_path=pdf_path, doc_name=doc_name, doc_link=doc_link)
+        return doc_name, [dataclasses.asdict(p) for p in pages], None
+    except Exception as err:
+        return doc_name, [], str(err)
+
+
 def build_page_corpus(
     pdf_dir: Path,
     doc_info_map: dict[str, dict[str, Any]] | None = None,
     needed_doc_names: set[str] | None = None,
+    cache_path: Path | None = None,
+    max_workers: int = 8,
 ) -> tuple[list[PageCorpusItem], dict[str, Any]]:
     """
     Builds the page-level retrieval corpus across all target PDFs.
+    If cache_path exists, loads directly from disk.
+    Otherwise extracts pages in parallel, optionally caching the result.
     Returns the corpus items and diagnostic statistics.
     """
+    if cache_path is not None and cache_path.is_file():
+        logger.info(f"Loading page corpus from cache: {cache_path}")
+        corpus = load_page_corpus(cache_path)
+        stats = {
+            "total_pdfs_targeted": len(set(p.doc_name for p in corpus)),
+            "pdfs_successfully_parsed": len(set(p.doc_name for p in corpus)),
+            "pdfs_failed": 0,
+            "failed_pdf_names": [],
+            "total_pages_extracted": len(corpus),
+            "empty_pages_count": sum(1 for p in corpus if len(p.text.strip()) < 10),
+            "non_empty_pages_count": sum(1 for p in corpus if len(p.text.strip()) >= 10),
+            "loaded_from_cache": True,
+        }
+        return corpus, stats
+
     corpus: list[PageCorpusItem] = []
     stats = {
         "total_pdfs_targeted": len(needed_doc_names) if needed_doc_names else 0,
@@ -275,6 +332,7 @@ def build_page_corpus(
         "total_pages_extracted": 0,
         "empty_pages_count": 0,
         "non_empty_pages_count": 0,
+        "loaded_from_cache": False,
     }
 
     doc_info_map = doc_info_map or {}
@@ -282,29 +340,64 @@ def build_page_corpus(
         p.stem for p in pdf_dir.glob("*.pdf")
     ]
 
+    worker_tasks = []
     for doc_name in target_docs:
         pdf_path = pdf_dir / f"{doc_name}.pdf"
         if not pdf_path.is_file():
             stats["pdfs_failed"] += 1
             stats["failed_pdf_names"].append(doc_name)
             continue
-
         doc_info = doc_info_map.get(doc_name, {})
         doc_link = doc_info.get("doc_link", "")
+        worker_tasks.append((doc_name, pdf_path, doc_link))
 
-        pages = extract_pdf_pages(pdf_path=pdf_path, doc_name=doc_name, doc_link=doc_link)
-        if not pages:
-            stats["pdfs_failed"] += 1
-            stats["failed_pdf_names"].append(doc_name)
-            continue
+    # Parallel extraction across available workers
+    from concurrent.futures import ProcessPoolExecutor, as_completed
 
-        stats["pdfs_successfully_parsed"] += 1
-        for p in pages:
-            corpus.append(p)
-            stats["total_pages_extracted"] += 1
-            if len(p.text.strip()) < 10:
-                stats["empty_pages_count"] += 1
+    parsed_doc_pages: dict[str, list[PageCorpusItem]] = {}
+    if max_workers > 1 and len(worker_tasks) > 1:
+        try:
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(_extract_single_doc_worker, task): task[0]
+                    for task in worker_tasks
+                }
+                for future in as_completed(futures):
+                    doc_name, page_dicts, err = future.result()
+                    if err or not page_dicts:
+                        stats["pdfs_failed"] += 1
+                        stats["failed_pdf_names"].append(doc_name)
+                    else:
+                        stats["pdfs_successfully_parsed"] += 1
+                        parsed_doc_pages[doc_name] = [PageCorpusItem(**d) for d in page_dicts]
+        except Exception as pool_err:
+            logger.warning(f"ProcessPoolExecutor failed, falling back to serial: {pool_err}")
+            parsed_doc_pages.clear()
+
+    # Fallback to serial if pool failed or not used
+    if not parsed_doc_pages:
+        for doc_name, pdf_path, doc_link in worker_tasks:
+            pages = extract_pdf_pages(pdf_path=pdf_path, doc_name=doc_name, doc_link=doc_link)
+            if not pages:
+                stats["pdfs_failed"] += 1
+                stats["failed_pdf_names"].append(doc_name)
             else:
-                stats["non_empty_pages_count"] += 1
+                stats["pdfs_successfully_parsed"] += 1
+                parsed_doc_pages[doc_name] = pages
+
+    # Maintain deterministic order by target_docs
+    for doc_name in target_docs:
+        if doc_name in parsed_doc_pages:
+            for p in parsed_doc_pages[doc_name]:
+                corpus.append(p)
+                stats["total_pages_extracted"] += 1
+                if len(p.text.strip()) < 10:
+                    stats["empty_pages_count"] += 1
+                else:
+                    stats["non_empty_pages_count"] += 1
+
+    if cache_path is not None and corpus:
+        save_page_corpus(corpus, cache_path)
 
     return corpus, stats
+

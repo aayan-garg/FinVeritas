@@ -49,6 +49,10 @@ artifacts/financebench_retrieval/*
 artifacts/answer_quality/*
 !artifacts/answer_quality/metrics.json
 !artifacts/answer_quality/config.json
+!artifacts/advanced_retrieval/
+artifacts/advanced_retrieval/*
+!artifacts/advanced_retrieval/metrics.json
+!artifacts/advanced_retrieval/config.json
 
 # Builds & Packaging
 build/
