@@ -68,6 +68,13 @@ __all__ = [
     "predict_evasion_transformer",
     "run_forward_backward_smoke_test",
     "train_transformer_model",
+    # Fair Benchmark & Audits
+    "audit_truncation_mechanics",
+    "audit_normalized_answer_leakage",
+    "train_fair_tfidf_baseline",
+    "evaluate_deberta_checkpoint",
+    "bootstrap_significance_test",
+    "normalize_answer_text",
 ]
 
 _TRANSFORMER_EXPORTS = {
@@ -83,6 +90,15 @@ _TRANSFORMER_EXPORTS = {
     "predict_evasion_transformer",
     "run_forward_backward_smoke_test",
     "train_transformer_model",
+}
+
+_FAIR_BENCHMARK_EXPORTS = {
+    "audit_truncation_mechanics",
+    "audit_normalized_answer_leakage",
+    "train_fair_tfidf_baseline",
+    "evaluate_deberta_checkpoint",
+    "bootstrap_significance_test",
+    "normalize_answer_text",
 }
 
 
@@ -114,4 +130,8 @@ def __getattr__(name: str):
         from finveritas.nlp_evasion import transformer_classifier
 
         return getattr(transformer_classifier, name)
+    if name in _FAIR_BENCHMARK_EXPORTS:
+        from finveritas.nlp_evasion import fair_benchmark
+
+        return getattr(fair_benchmark, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

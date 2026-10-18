@@ -43,6 +43,10 @@ artifacts/initial_baseline/*
 artifacts/transformer_nlp/*
 !artifacts/transformer_nlp/metrics.json
 !artifacts/transformer_nlp/config.json
+!artifacts/nlp_comparison/
+artifacts/nlp_comparison/*
+!artifacts/nlp_comparison/metrics.json
+!artifacts/nlp_comparison/config.json
 
 # Builds & Packaging
 build/
