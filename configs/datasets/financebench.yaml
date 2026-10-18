@@ -1,0 +1,42 @@
+# FinVeritas: FinanceBench Dataset Specification & Governance
+dataset_name: "FinanceBench (Open-Source 150-Question Sample)"
+version: "1.0.0"
+paper: "FinanceBench: A New Benchmark for Financial Question Answering (arXiv:2311.11944)"
+license: "CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International)"
+authors: "Patronus AI"
+official_sources:
+  huggingface: "https://huggingface.co/datasets/PatronusAI/financebench"
+  github: "https://github.com/patronus-ai/financebench"
+
+benchmark_scope:
+  total_questions: 150
+  unique_source_documents: 84
+  document_types:
+    - "10-K (Annual Reports)"
+    - "10-Q (Quarterly Reports)"
+    - "8-K (Current Reports)"
+  target_universe: "Publicly traded enterprise companies (e.g., 3M, Amazon, Adobe, Microsoft, Apple, AMD)"
+
+page_number_convention:
+  indexing: "0-based"
+  description: >
+    The 'evidence_page_num' annotation in the benchmark represents a zero-based integer index
+    corresponding directly to reader.pages[page_index] in standard PDF parsers (e.g., pypdf).
+    Document printed page numbers typically offset by +1 or more due to cover/preamble pages.
+
+local_storage:
+  metadata_dir: "data/raw/financebench"
+  open_source_jsonl: "data/raw/financebench/financebench_open_source.jsonl"
+  doc_info_jsonl: "data/raw/financebench/financebench_document_information.jsonl"
+  pdfs_dir: "data/raw/financebench/pdfs"
+
+governance_rules:
+  no_target_leakage: >
+    The retrieval corpus must be constructed strictly from extracted PDF page text.
+    Question-level gold evidence, reference answers, and justifications are strictly
+    reserved for evaluation and must NEVER be indexed or included in search queries.
+  retrieval_query_boundary: >
+    Only the raw 'question' text may be supplied to the retrieval engine.
+  uncalibrated_retrieval_disclaimer: >
+    Lexical retrieval matches surface token overlap (TF-IDF/BM25) and does not perform
+    semantic financial reasoning or verify factual correctness of candidate pages.

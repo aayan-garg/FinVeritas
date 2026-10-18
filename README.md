@@ -107,3 +107,34 @@ A standalone CLI is provided to train and run question-evasion predictions local
    ```
 
 *Note: Output class probabilities are uncalibrated soft scores and must not be interpreted as Bayesian posterior probabilities or confidence estimates.*
+
+---
+
+## FinanceBench Evidence Retrieval (Checkpoint 04)
+
+### Benchmark Overview (Open-Source Sample, N = 150)
+- **Dataset:** `PatronusAI/financebench` (arXiv:2311.11944), CC BY-NC 4.0 license.
+- **Corpus:** 12,013 extracted financial pages across 84 enterprise filings (10-K, 10-Q, 8-K).
+- **Coverage:** 100.0% (150 / 150 benchmark questions indexed across source PDFs).
+- **Task:** Retrieve gold evidence pages using only raw question text (zero answer or justification leakage).
+
+### Empirical Retrieval Baseline Comparison
+| Metric | Word TF-IDF (Cosine) | Okapi BM25 |
+| :--- | :--- | :--- |
+| **Gold Document Recall@1** | 24.67% (37 / 150) | **35.33%** (53 / 150) |
+| **Gold Document Recall@5** | 54.67% (82 / 150) | **59.33%** (89 / 150) |
+| **Gold Evidence Page Recall@1** | 4.00% (6 / 150) | **8.67%** (13 / 150) |
+| **Gold Evidence Page Recall@5** | 8.67% (13 / 150) | **12.67%** (19 / 150) |
+| **Gold Evidence Page MRR** | 0.0589 | **0.0986** |
+| **Mean Retrieval Latency (CPU)** | 151.02 ms | **26.06 ms (5.8x faster)** |
+
+### Run Retrieval Evaluation CLI
+```bash
+# Evaluate TF-IDF and BM25 on local corpus:
+python scripts/evaluate_financebench_retrieval.py
+
+# Download missing PDFs and evaluate:
+python scripts/evaluate_financebench_retrieval.py --download
+```
+
+*Disclaimer: Retrieval evaluation measures page-level evidence locating. Retrieving the gold page does not establish answer generation accuracy or verified financial reasoning.*

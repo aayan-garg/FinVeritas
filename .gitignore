@@ -39,6 +39,10 @@ artifacts/initial_baseline/*
 !artifacts/initial_baseline/metrics.json
 !artifacts/initial_baseline/config.json
 !artifacts/initial_baseline/confusion_matrix.json
+!artifacts/financebench_retrieval/
+artifacts/financebench_retrieval/*
+!artifacts/financebench_retrieval/metrics.json
+!artifacts/financebench_retrieval/config.json
 
 # Builds & Packaging
 build/
