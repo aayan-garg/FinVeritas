@@ -100,9 +100,11 @@ class TransformerModelMetrics:
 
 class EvasionQAPairDataset(Dataset):
     """
-    PyTorch Dataset for question-answer sequence pair classification.
-    Sequence 1: question
-    Sequence 2: answer
+    PyTorch Dataset for sequence classification.
+    Modes:
+      - 'qa': Sequence pair [Question, Answer]
+      - 'question_only': Sequence 1 only [Question]
+      - 'answer_only': Sequence 1 only [Answer]
     """
 
     def __init__(
@@ -112,7 +114,13 @@ class EvasionQAPairDataset(Dataset):
         labels: list[str] | list[int] | None = None,
         tokenizer: PreTrainedTokenizerBase | None = None,
         max_length: int = DEFAULT_MAX_LENGTH,
+        input_mode: str = "qa",
     ) -> None:
+        if input_mode not in ("qa", "question_only", "answer_only"):
+            raise ValueError(
+                f"Unknown input_mode '{input_mode}'. "
+                "Must be 'qa', 'question_only', or 'answer_only'."
+            )
         if len(questions) != len(answers):
             raise ValueError(
                 f"Mismatch: questions ({len(questions)}) vs answers ({len(answers)})"
@@ -126,6 +134,7 @@ class EvasionQAPairDataset(Dataset):
         self.answers = answers
         self.max_length = max_length
         self.tokenizer = tokenizer
+        self.input_mode = input_mode
 
         if labels is not None:
             if isinstance(labels[0], str):
@@ -149,7 +158,15 @@ class EvasionQAPairDataset(Dataset):
 
         truncated_count = 0
         for q, a in zip(self.questions, self.answers):
-            enc = self.tokenizer.encode(q, a, truncation=False)
+            if self.input_mode == "qa":
+                enc = self.tokenizer.encode(q, a, truncation=False)
+            elif self.input_mode == "question_only":
+                enc = self.tokenizer.encode(q, truncation=False)
+            elif self.input_mode == "answer_only":
+                enc = self.tokenizer.encode(a, truncation=False)
+            else:
+                enc = []
+
             if len(enc) > self.max_length:
                 truncated_count += 1
 
@@ -172,14 +189,33 @@ class EvasionQAPairDataset(Dataset):
         if self.tokenizer is None:
             raise RuntimeError("Tokenizer is required to tokenize items.")
 
-        encoding = self.tokenizer(
-            q,
-            a,
-            truncation=True,
-            max_length=self.max_length,
-            padding=False,
-            return_tensors=None,
-        )
+        if self.input_mode == "qa":
+            encoding = self.tokenizer(
+                q,
+                a,
+                truncation=True,
+                max_length=self.max_length,
+                padding=False,
+                return_tensors=None,
+            )
+        elif self.input_mode == "question_only":
+            encoding = self.tokenizer(
+                q,
+                truncation=True,
+                max_length=self.max_length,
+                padding=False,
+                return_tensors=None,
+            )
+        elif self.input_mode == "answer_only":
+            encoding = self.tokenizer(
+                a,
+                truncation=True,
+                max_length=self.max_length,
+                padding=False,
+                return_tensors=None,
+            )
+        else:
+            raise ValueError(f"Unsupported input_mode: {self.input_mode}")
 
         item = {
             "input_ids": torch.tensor(encoding["input_ids"], dtype=torch.long),
@@ -470,6 +506,7 @@ def train_transformer_model(
     smoke_test_only: bool = False,
     max_train_samples: int | None = None,
     max_val_samples: int | None = None,
+    input_mode: str = "qa",
 ) -> tuple[PreTrainedModel, PreTrainedTokenizerBase, TransformerModelMetrics]:
     """
     Fine-tunes the transformer model on the train partition, selecting the best
@@ -531,6 +568,7 @@ def train_transformer_model(
         labels=train_y,
         tokenizer=tokenizer,
         max_length=max_length,
+        input_mode=input_mode,
     )
     val_dataset = EvasionQAPairDataset(
         questions=val_q,
@@ -538,6 +576,7 @@ def train_transformer_model(
         labels=val_y,
         tokenizer=tokenizer,
         max_length=max_length,
+        input_mode=input_mode,
     )
 
     pad_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
@@ -736,6 +775,7 @@ def evaluate_transformer_model(
     max_length: int = DEFAULT_MAX_LENGTH,
     train_wall_time: float = 0.0,
     peak_gpu_memory_mb: float = 0.0,
+    input_mode: str = "qa",
 ) -> TransformerModelMetrics:
     """Evaluates the model on the held-out test partition."""
     if device is None:
@@ -750,6 +790,7 @@ def evaluate_transformer_model(
         labels=test_data["labels"],
         tokenizer=tokenizer,
         max_length=max_length,
+        input_mode=input_mode,
     )
 
     pad_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0

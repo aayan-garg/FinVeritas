@@ -316,6 +316,7 @@ def evaluate_deberta_checkpoint(
     max_length: int = 256,
     batch_size: int = 8,
     device: torch.device | None = None,
+    input_mode: str = "qa",
 ) -> dict[str, Any]:
     """
     Re-evaluates an existing fine-tuned DeBERTa checkpoint on the test partition,
@@ -349,6 +350,7 @@ def evaluate_deberta_checkpoint(
         labels=test_data["labels"],
         tokenizer=tokenizer,
         max_length=max_length,
+        input_mode=input_mode,
     )
     pad_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
     test_loader = DataLoader(

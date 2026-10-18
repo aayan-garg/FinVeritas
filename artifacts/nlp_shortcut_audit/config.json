@@ -1,0 +1,58 @@
+{
+  "experiment_name": "Checkpoint 06: NLP Shortcut Learning and Robustness Audit",
+  "dataset_path": "data\\raw\\evasionbench\\evasionbench_17k_eva4b_labels_dedup.parquet",
+  "target_field": "eva4b_label",
+  "models_evaluated": [
+    "deberta_v3_xsmall_question_only_384",
+    "deberta_v3_xsmall_answer_only_384",
+    "deberta_v3_xsmall_qa_384",
+    "deberta_v3_xsmall_qa_384_answer_disjoint"
+  ],
+  "question_disjoint_split": {
+    "total_samples": 16726,
+    "train_samples": 10704,
+    "val_samples": 2676,
+    "test_samples": 3346,
+    "unique_groups_train": 10629,
+    "unique_groups_val": 2659,
+    "unique_groups_test": 3322,
+    "group_overlap_train_val": 0,
+    "group_overlap_train_test": 0,
+    "group_overlap_val_test": 0,
+    "random_state": 42
+  },
+  "answer_disjoint_split": {
+    "partitioning_type": "normalized_answer_disjoint",
+    "total_samples": 16726,
+    "train_samples": 10704,
+    "val_samples": 2676,
+    "test_samples": 3346,
+    "unique_answer_groups_train": 10563,
+    "unique_answer_groups_val": 2633,
+    "unique_answer_groups_test": 3302,
+    "answer_group_overlap_train_val": 0,
+    "answer_group_overlap_train_test": 0,
+    "answer_group_overlap_val_test": 0,
+    "random_state": 42
+  },
+  "hyperparameters": {
+    "model_name": "microsoft/deberta-v3-xsmall",
+    "max_length": 384,
+    "epochs": 1,
+    "batch_size": 2,
+    "grad_accum_steps": 4,
+    "effective_batch_size": 8,
+    "learning_rate": 2e-05,
+    "precision": "FP32",
+    "seed": 42,
+    "device": "cuda"
+  },
+  "environment": {
+    "python_version": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "torch_version": "2.6.0+cu124",
+    "cuda_available": true,
+    "gpu_name": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+    "platform": "win32"
+  },
+  "scientific_disclaimer": "These classification scores measure empirical agreement with Eva-4B-V2 model-generated pseudo-labels on EvasionBench, NOT independently verified human ground-truth evasion."
+}

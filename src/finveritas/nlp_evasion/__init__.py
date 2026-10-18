@@ -75,6 +75,10 @@ __all__ = [
     "evaluate_deberta_checkpoint",
     "bootstrap_significance_test",
     "normalize_answer_text",
+    # Shortcut Audit
+    "create_answer_disjoint_splits",
+    "audit_answer_templates",
+    "evaluate_answer_template_subsets",
 ]
 
 _TRANSFORMER_EXPORTS = {
@@ -99,6 +103,12 @@ _FAIR_BENCHMARK_EXPORTS = {
     "evaluate_deberta_checkpoint",
     "bootstrap_significance_test",
     "normalize_answer_text",
+}
+
+_SHORTCUT_AUDIT_EXPORTS = {
+    "create_answer_disjoint_splits",
+    "audit_answer_templates",
+    "evaluate_answer_template_subsets",
 }
 
 
@@ -134,4 +144,8 @@ def __getattr__(name: str):
         from finveritas.nlp_evasion import fair_benchmark
 
         return getattr(fair_benchmark, name)
+    if name in _SHORTCUT_AUDIT_EXPORTS:
+        from finveritas.nlp_evasion import shortcut_audit
+
+        return getattr(shortcut_audit, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
