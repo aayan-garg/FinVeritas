@@ -23,6 +23,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 import pyarrow.parquet as pq
 import sklearn
@@ -388,6 +389,92 @@ def run_baseline_experiments(
         )
 
     return results
+
+
+def train_and_save_baseline_model(
+    parquet_path: Path,
+    model_save_path: Path,
+    random_state: int = 42,
+    max_iter: int = 1000,
+) -> Pipeline:
+    """
+    Fits the TF-IDF + Balanced Logistic Regression pipeline strictly on the
+    80% train split and saves the fitted model to model_save_path using joblib.
+    """
+    if not parquet_path.is_file():
+        raise FileNotFoundError(f"Parquet dataset not found at: {parquet_path}")
+
+    logger.info(f"Loading dataset from {parquet_path}...")
+    tbl = pq.read_table(parquet_path, columns=["question", "answer", "eva4b_label"])
+    questions = tbl["question"].to_pylist()
+    answers = tbl["answer"].to_pylist()
+    labels = tbl["eva4b_label"].to_pylist()
+
+    train_idx, _, _ = create_leakage_aware_split(
+        questions=questions,
+        labels=labels,
+        n_splits=5,
+        random_state=random_state,
+        fold_to_use=0,
+    )
+
+    train_texts = [f"Question: {questions[i]}\nAnswer: {answers[i]}" for i in train_idx]
+    y_train = [labels[i] for i in train_idx]
+
+    logger.info(f"Fitting pipeline on {len(train_texts)} training examples...")
+    pipeline = build_tfidf_lr_pipeline(random_state=random_state, max_iter=max_iter)
+    pipeline.fit(train_texts, y_train)
+
+    model_save_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(pipeline, model_save_path)
+    logger.info(f"Saved fitted model to {model_save_path}")
+    return pipeline
+
+
+def load_baseline_model(model_path: Path) -> Pipeline:
+    """
+    Loads a fitted baseline pipeline from a joblib artifact file.
+    """
+    if not model_path.is_file():
+        raise FileNotFoundError(
+            f"Fitted baseline model artifact not found at: {model_path}\n"
+            "Please train the model first by running:\n"
+            "  python scripts/predict_evasion.py --train"
+        )
+    return joblib.load(model_path)
+
+
+def predict_evasion(
+    pipeline: Pipeline,
+    question: str,
+    answer: str,
+) -> dict[str, Any]:
+    """
+    Predicts question evasion using a fitted baseline pipeline.
+    Returns predicted label and uncalibrated class probabilities.
+    """
+    formatted_text = f"Question: {question.strip()}\nAnswer: {answer.strip()}"
+    pred_label = str(pipeline.predict([formatted_text])[0])
+
+    probs = pipeline.predict_proba([formatted_text])[0]
+    classes = list(pipeline.classes_)
+
+    prob_dict = {
+        cls_name: round(float(prob), 4)
+        for cls_name, prob in zip(classes, probs)
+    }
+
+    return {
+        "question": question.strip(),
+        "answer": answer.strip(),
+        "predicted_label": pred_label,
+        "uncalibrated_probabilities": prob_dict,
+        "disclaimer": (
+            "These scores represent linear model decision scores trained on "
+            "Eva-4B-V2 pseudo-labels. They are uncalibrated and must not be "
+            "interpreted as verified confidence estimates."
+        ),
+    }
 
 
 def main() -> int:

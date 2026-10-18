@@ -11,8 +11,11 @@
 
 This document presents the first empirical, reproducible experimental results for question-evasion detection in FinVeritas. Two CPU-only baseline models were implemented, trained, and evaluated on a strictly leakage-aware, question-grouped test split of the approved EvasionBench dataset (`FutureMa/EvasionBench`).
 
-### ⚠️ Essential Pseudo-Label Disclaimer
-All target labels (`eva4b_label`) in this dataset are **model-generated pseudo-labels** produced by **Eva-4B-V2** (arXiv:2601.09142), not verified human ground truth. All metrics reported below measure **agreement with the upstream Eva-4B-V2 pseudo-label distribution**, rather than validated real-world evasion-detection accuracy.
+### ⚠️ Essential Methodological & Data Governance Disclaimers
+1. **Pseudo-Label Nature:** All target labels (`eva4b_label`) in this dataset are **model-generated pseudo-labels** produced by **Eva-4B-V2** (arXiv:2601.09142), not independently verified human ground truth.
+2. **Evaluation Scope:** All metrics reported below measure **agreement with the upstream Eva-4B-V2 pseudo-label distribution**, rather than independently verified real-world evasion-detection performance.
+3. **Leakage Boundaries:** The grouping protocol guarantees **zero normalized-question overlap between train and test**. However, **company-level, speaker-level, and temporal leakage have not been ruled out** because the public dataset omits ticker, company, transcript, and call-date identifiers.
+4. **Gold Benchmark Unavailability:** The 1,000-sample human gold evaluation set reported in arXiv:2601.09142 is private and unreleased; it cannot be accessed or compared against in this local experiment. These scores must not be claimed as state-of-the-art or compared directly against human gold metrics.
 
 ### Key Experimental Findings
 1. **Majority-Class Baseline:** Predicts `direct` for all test samples, achieving **52.30% Accuracy** and **0.2289 Macro-F1** (collapsing completely on `intermediate` and `fully_evasive`).
@@ -38,7 +41,7 @@ To prevent data contamination where the same analyst question appears in both tr
 - **Unique Question Groups:** `16,610` unique normalized question groups across 16,726 rows.
 - **Splitting Algorithm:** `StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)`
 - **Evaluation Fold:** Fold `0` reserved as the held-out test set (exactly 20.00% of samples).
-- **Group Overlap Verification:** Confirmed **0 overlapping question groups** between train and test sets ($Train \cap Test = \emptyset$).
+- **Group Overlap Verification:** Confirmed **zero normalized-question overlap between train and test** ($Train \cap Test = \emptyset$).
 - **Preprocessing Isolation:** All TF-IDF vocabularies, IDF weights, and feature transforms were fitted strictly on the training partition.
 
 ### 1.3. Split Distribution Table

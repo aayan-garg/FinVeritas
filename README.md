@@ -70,14 +70,40 @@ Install the package in editable mode:
 pip install -e .
 ```
 
-### 2. Run Smoke Tests
-Verify package importability and environment sanity:
+### 2. Run Test Suite
+Verify environment, baseline classification, and audit invariants:
 ```bash
-python -m unittest tests/test_smoke.py
+python -m pytest -q
 ```
 
-### 3. Run Acceptance Tests
-Verify baseline classification functions:
-```bash
-python -m unittest tests/unit/test_baseline_acceptance.py
-```
+---
+
+## NLP Evasion Baseline & Local Inference CLI
+
+### Empirical Baseline Summary (Held-Out Test Split, N = 3,346)
+- **Majority-Class Baseline:** Accuracy: 52.30%, Macro-F1: 0.2289, Weighted-F1: 0.3592
+- **TF-IDF + Balanced Logistic Regression:** Accuracy: 64.20%, Macro-F1: 0.5759, Weighted-F1: 0.6430
+  - Fully Evasive Class F1: 0.4302 (Recall: 45.97%, Precision: 40.43%)
+  - Training Time: ~36.83 seconds on CPU (zero GPU/CUDA utilized)
+
+### Methodological & Scientific Governance Disclaimers
+1. **Pseudo-Labels:** All dataset labels (`eva4b_label`) are model-generated pseudo-labels produced by Eva-4B-V2, not human ground truth.
+2. **Agreement Metric:** Reported evaluation measures agreement with Eva-4B-V2 pseudo-labels, not independently verified real-world evasion-detection performance.
+3. **Leakage Boundaries:** Group-aware splitting guarantees **zero normalized-question overlap between train and test**; however, company-level and temporal leakage have not been ruled out due to omitted metadata.
+4. **No SOTA Claim / Gold Benchmark Unreleased:** The published 1,000-sample human gold evaluation set is private and unavailable locally; baseline scores must not be claimed as state-of-the-art or compared directly against human gold evaluation.
+
+### Local Inference CLI
+A standalone CLI is provided to train and run question-evasion predictions locally without GPU or network access:
+
+1. **Train and persist model artifact:**
+   ```bash
+   python scripts/predict_evasion.py --train
+   ```
+   *Saves fitted model to `artifacts/initial_baseline/model.joblib` (excluded from version control).*
+
+2. **Run inference on a Q&A pair:**
+   ```bash
+   python scripts/predict_evasion.py --question "What was Q3 organic revenue growth?" --answer "Organic revenue grew 4.2% across North America."
+   ```
+
+*Note: Output class probabilities are uncalibrated soft scores and must not be interpreted as Bayesian posterior probabilities or confidence estimates.*

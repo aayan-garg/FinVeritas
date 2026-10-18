@@ -13,8 +13,11 @@ if TYPE_CHECKING:
         build_tfidf_lr_pipeline,
         create_leakage_aware_split,
         evaluate_model,
+        load_baseline_model,
         normalize_question_for_grouping,
+        predict_evasion,
         run_baseline_experiments,
+        train_and_save_baseline_model,
     )
     from finveritas.nlp_evasion.dataset_audit import (
         DatasetAuditResult,
@@ -33,8 +36,11 @@ __all__ = [
     "build_tfidf_lr_pipeline",
     "create_leakage_aware_split",
     "evaluate_model",
+    "load_baseline_model",
     "normalize_question_for_grouping",
+    "predict_evasion",
     "run_baseline_experiments",
+    "train_and_save_baseline_model",
 ]
 
 
@@ -53,8 +59,11 @@ def __getattr__(name: str):
         "build_tfidf_lr_pipeline",
         "create_leakage_aware_split",
         "evaluate_model",
+        "load_baseline_model",
         "normalize_question_for_grouping",
+        "predict_evasion",
         "run_baseline_experiments",
+        "train_and_save_baseline_model",
     ):
         from finveritas.nlp_evasion import baselines
 

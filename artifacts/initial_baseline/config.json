@@ -1,0 +1,78 @@
+{
+  "dataset_path": "data\\raw\\evasionbench\\evasionbench_17k_eva4b_labels_dedup.parquet",
+  "target_field": "eva4b_label",
+  "input_fields": [
+    "question",
+    "answer"
+  ],
+  "prohibited_fields_excluded": [
+    "choices",
+    "eva4b_label_letter",
+    "uid"
+  ],
+  "label_nature": "Eva-4B-V2 model-generated pseudo-labels (weak labels, not human ground truth)",
+  "split_configuration": {
+    "split_method": "StratifiedGroupKFold",
+    "n_splits": 5,
+    "test_fold_index": 0,
+    "random_state": 42,
+    "total_samples": 16726,
+    "unique_question_groups": 16610,
+    "train_samples": 13380,
+    "test_samples": 3346,
+    "test_fraction": 0.2,
+    "train_class_counts": {
+      "direct": 6999,
+      "intermediate": 5887,
+      "fully_evasive": 494
+    },
+    "test_class_counts": {
+      "intermediate": 1472,
+      "direct": 1750,
+      "fully_evasive": 124
+    },
+    "question_group_overlap": 0
+  },
+  "models": {
+    "majority_class": {
+      "class_name": "MajorityClassBaseline",
+      "predicted_label": "direct"
+    },
+    "tfidf_logistic_regression": {
+      "word_tfidf": {
+        "ngram_range": [
+          1,
+          2
+        ],
+        "min_df": 3,
+        "max_features": 40000,
+        "sublinear_tf": true
+      },
+      "char_tfidf": {
+        "ngram_range": [
+          3,
+          5
+        ],
+        "analyzer": "char_wb",
+        "min_df": 5,
+        "max_features": 60000,
+        "sublinear_tf": true
+      },
+      "classifier": {
+        "class": "LogisticRegression",
+        "class_weight": "balanced",
+        "solver": "lbfgs",
+        "max_iter": 1000,
+        "random_state": 42
+      }
+    }
+  },
+  "environment": {
+    "python_version": "3.14.5 (tags/v3.14.5:5607950, May 10 2026, 10:43:50) [MSC v.1944 64 bit (AMD64)]",
+    "scikit_learn_version": "1.9.1",
+    "numpy_version": "2.5.4",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "cpu_only": true,
+    "gpu_used": false
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "class_names": [
+    "direct",
+    "intermediate",
+    "fully_evasive"
+  ],
+  "majority_class": [
+    [
+      1750,
+      0,
+      0
+    ],
+    [
+      1472,
+      0,
+      0
+    ],
+    [
+      124,
+      0,
+      0
+    ]
+  ],
+  "tfidf_logistic_regression": [
+    [
+      1163,
+      550,
+      37
+    ],
+    [
+      497,
+      928,
+      47
+    ],
+    [
+      22,
+      45,
+      57
+    ]
+  ]
+}
