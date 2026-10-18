@@ -10,7 +10,10 @@ readme = "README.md"
 authors = [{ name = "FinVeritas Engineering Team" }]
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "pyarrow>=14.0.0",
+    "pyyaml>=6.0.0",
+]
 
 [project.optional-dependencies]
 dev = [

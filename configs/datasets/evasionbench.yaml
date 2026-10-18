@@ -1,0 +1,24 @@
+dataset_name: "EvasionBench"
+hf_repo_id: "FutureMa/EvasionBench"
+hf_revision: "4b91247a823ca046d9f1d936be7dc2fe0735ad08"
+source_url: "https://huggingface.co/datasets/FutureMa/EvasionBench/resolve/main/evasionbench_17k_eva4b_labels_dedup.parquet"
+local_dir: "data/raw/evasionbench"
+filename: "evasionbench_17k_eva4b_labels_dedup.parquet"
+max_download_size_bytes: 33554432  # 32 MB safeguard
+expected_classes:
+  - "direct"
+  - "intermediate"
+  - "fully_evasive"
+required_columns:
+  - "uid"
+  - "question"
+  - "answer"
+  - "eva4b_label"
+optional_columns:
+  - "choices"
+  - "eva4b_label_letter"
+group_columns_expected_for_leakage_control:
+  - "ticker"
+  - "company"
+  - "call_date"
+  - "transcript_id"
