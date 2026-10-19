@@ -228,6 +228,53 @@ def test_hybrid_rrf_scoring_math():
     assert math.isclose(fused[1].score, expected_score, rel_tol=1e-5)
 
 
+def test_hybrid_rrf_empty_or_missing_dense_results():
+    """
+    Verify regression behavior: Hybrid RRF handles empty or missing dense results
+    gracefully without crashing, correctly falling back to BM25 ranks.
+    """
+    bm25_mock = MagicMock()
+    dense_mock = MagicMock()
+
+    # Case 1: Dense returns empty results
+    bm25_mock.retrieve_chunks.return_value = [
+        ChunkRetrievalResult("c1", "DOC", 0, 0, 10.0, 1, "text1"),
+        ChunkRetrievalResult("c2", "DOC", 1, 0, 8.0, 2, "text2"),
+    ]
+    dense_mock.retrieve_chunks.return_value = []
+
+    rrf = HybridRRFRetriever(bm25_mock, dense_mock, rrf_k=60)
+    fused_empty_dense = rrf.retrieve_chunks("query", top_k=5)
+    assert len(fused_empty_dense) == 2
+    assert fused_empty_dense[0].chunk_id == "c1"
+    assert fused_empty_dense[1].chunk_id == "c2"
+    assert math.isclose(fused_empty_dense[0].score, 1.0 / (60 + 1), rel_tol=1e-5)
+    assert math.isclose(fused_empty_dense[1].score, 1.0 / (60 + 2), rel_tol=1e-5)
+
+    # Also check page-level retrieve()
+    pages = rrf.retrieve("query", top_k=5)
+    assert len(pages) == 2
+    assert pages[0].doc_name == "DOC"
+
+    # Case 2: BM25 returns empty results
+    bm25_mock.retrieve_chunks.return_value = []
+    dense_mock.retrieve_chunks.return_value = [
+        ChunkRetrievalResult("c3", "DOC_B", 3, 0, 0.99, 1, "text3"),
+    ]
+    fused_empty_bm25 = rrf.retrieve_chunks("query", top_k=5)
+    assert len(fused_empty_bm25) == 1
+    assert fused_empty_bm25[0].chunk_id == "c3"
+    assert math.isclose(fused_empty_bm25[0].score, 1.0 / (60 + 1), rel_tol=1e-5)
+
+    # Case 3: Both return empty results
+    bm25_mock.retrieve_chunks.return_value = []
+    dense_mock.retrieve_chunks.return_value = []
+    fused_both_empty = rrf.retrieve_chunks("query", top_k=5)
+    assert fused_both_empty == []
+    pages_both_empty = rrf.retrieve("query", top_k=5)
+    assert pages_both_empty == []
+
+
 def test_ndcg_at_k_computation_edge_cases():
     """Verify nDCG@K under binary relevance across perfect, partial, and empty rankings."""
     gold = {("DOC_A", 1), ("DOC_A", 2)}

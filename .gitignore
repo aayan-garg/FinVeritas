@@ -53,6 +53,9 @@ artifacts/answer_quality/*
 artifacts/advanced_retrieval/*
 !artifacts/advanced_retrieval/metrics.json
 !artifacts/advanced_retrieval/config.json
+!artifacts/fast_hybrid_eval/
+artifacts/fast_hybrid_eval/*
+!artifacts/fast_hybrid_eval/fast_hybrid_evaluation_results.json
 
 # Builds & Packaging
 build/
