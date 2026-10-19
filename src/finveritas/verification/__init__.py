@@ -16,6 +16,8 @@ from finveritas.verification.answer_quality import (
     paired_group_bootstrap,
 )
 from finveritas.verification.numeric_verifier import (
+    KNOWN_ENTITY_MAPPINGS,
+    MAX_PERMITTED_TOLERANCE,
     EvidenceCitation,
     EvidencePassage,
     FinancialClaim,
@@ -26,6 +28,7 @@ from finveritas.verification.numeric_verifier import (
     normalize_currency,
     normalize_period,
     normalize_scale,
+    validate_entity_match,
     verify_claim,
 )
 
@@ -35,7 +38,9 @@ __all__ = [
     "EvidenceCitation",
     "EvidencePassage",
     "FinancialClaim",
+    "KNOWN_ENTITY_MAPPINGS",
     "LABEL_MAPPING",
+    "MAX_PERMITTED_TOLERANCE",
     "ParsedEvidenceCandidate",
     "VerificationResult",
     "VerificationVerdict",
@@ -49,5 +54,6 @@ __all__ = [
     "normalize_period",
     "normalize_scale",
     "paired_group_bootstrap",
+    "validate_entity_match",
     "verify_claim",
 ]

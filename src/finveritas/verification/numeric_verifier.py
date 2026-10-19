@@ -98,6 +98,166 @@ def normalize_currency(currency: str | None) -> str:
     return CURRENCY_ALIASES.get(c, currency.strip().upper())
 
 
+# Maximum permitted relative tolerance for financial verification (20%)
+MAX_PERMITTED_TOLERANCE: Decimal = Decimal("0.20")
+
+# Conservative entity alias registry for public corporate filers
+KNOWN_ENTITY_MAPPINGS: dict[str, list[str]] = {
+    "AMD": [
+        "amd",
+        "advanced micro devices",
+        "advanced micro devices inc",
+        "advanced micro devices, inc.",
+    ],
+    "BOEING": [
+        "boeing",
+        "the boeing company",
+        "boeing co",
+        "boeing co.",
+        "ba",
+    ],
+    "3M": [
+        "3m",
+        "3m company",
+        "3m co",
+        "mmm",
+    ],
+    "AMAZON": [
+        "amazon",
+        "amazon.com",
+        "amazon.com inc",
+        "amazon.com, inc.",
+        "amzn",
+    ],
+    "APPLE": [
+        "apple",
+        "apple inc",
+        "apple inc.",
+        "aapl",
+    ],
+    "MICROSOFT": [
+        "microsoft",
+        "microsoft corp",
+        "microsoft corporation",
+        "msft",
+    ],
+    "AMCOR": [
+        "amcor",
+        "amcor plc",
+        "amcr",
+    ],
+    "AMERICAN_EXPRESS": [
+        "american express",
+        "american express co",
+        "american express company",
+        "axp",
+    ],
+    "BEST_BUY": [
+        "best buy",
+        "best buy co inc",
+        "bby",
+    ],
+    "BLOCK": [
+        "block",
+        "block inc",
+        "sq",
+    ],
+    "COCA_COLA": [
+        "coca-cola",
+        "coca cola",
+        "the coca-cola company",
+        "ko",
+    ],
+    "ACTIVISION_BLIZZARD": [
+        "activision blizzard",
+        "activision",
+        "atvi",
+    ],
+}
+
+
+def normalize_entity_name(name: str) -> str:
+    """Standardizes company names by lowercasing, removing legal suffixes and punctuation."""
+    s = unicodedata.normalize("NFKC", name).strip().lower()
+    s = s.replace("_", " ")
+    s = re.sub(
+        r"\b(inc|incorporated|corp|corporation|co|company|plc|ltd|limited|the)\b",
+        "",
+        s,
+        flags=re.IGNORECASE,
+    )
+    s = re.sub(r"[^\w\s]", "", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def extract_entity_from_doc_name(doc_name: str) -> str:
+    """
+    Extracts entity identifier from standard filing naming conventions.
+    E.g. AMD_2022_10K -> AMD, COCA_COLA_2022_10K -> COCA_COLA.
+    """
+    clean_stem = doc_name.replace(".pdf", "").replace(".PDF", "").strip()
+    stem_without_year = re.sub(r"_(?:19|20)\d\d.*$", "", clean_stem)
+    if stem_without_year:
+        return stem_without_year.strip()
+    parts = clean_stem.split("_")
+    return parts[0].strip()
+
+
+def validate_entity_match(
+    claim_entity: str,
+    doc_name: str,
+    passage_metadata: dict[str, Any] | None = None,
+) -> tuple[bool, str]:
+    """
+    Validates that a claim's entity legitimately matches the source filing document.
+    Returns (is_valid, reason).
+    Fails closed if mappings are ambiguous or metadata conflicts.
+    """
+    norm_claim = normalize_entity_name(claim_entity)
+    if not norm_claim:
+        return False, "Empty or invalid claim entity identifier."
+
+    # 1. If passage metadata provides explicit company information, check it strictly
+    if passage_metadata:
+        meta_company = passage_metadata.get("company") or passage_metadata.get("entity")
+        if meta_company:
+            norm_meta = normalize_entity_name(str(meta_company))
+            if norm_claim != norm_meta:
+                # Check known aliases
+                matched_via_alias = False
+                for canonical, aliases in KNOWN_ENTITY_MAPPINGS.items():
+                    norm_aliases = [normalize_entity_name(a) for a in aliases]
+                    norm_aliases.append(normalize_entity_name(canonical))
+                    if norm_claim in norm_aliases and norm_meta in norm_aliases:
+                        matched_via_alias = True
+                        break
+                if not matched_via_alias:
+                    return False, (
+                        f"Conflicting entity metadata: claim entity '{claim_entity}' does not "
+                        f"match evidence document company '{meta_company}'."
+                    )
+
+    # 2. Extract entity prefix from document name
+    doc_entity = extract_entity_from_doc_name(doc_name)
+    norm_doc = normalize_entity_name(doc_entity)
+
+    # Check direct match
+    if norm_claim == norm_doc:
+        return True, "Direct entity match."
+
+    # Check known entity mappings
+    for canonical, aliases in KNOWN_ENTITY_MAPPINGS.items():
+        norm_aliases = [normalize_entity_name(a) for a in aliases]
+        norm_aliases.append(normalize_entity_name(canonical))
+        if norm_claim in norm_aliases and norm_doc in norm_aliases:
+            return True, f"Matched via canonical entity registry ({canonical})."
+
+    return False, (
+        f"Entity mismatch: claim entity '{claim_entity}' does not match document "
+        f"'{doc_name}' (derived entity '{doc_entity}'). Vague substring matching is rejected."
+    )
+
+
 # Bounded set of supported financial metrics
 SUPPORTED_METRICS: dict[str, list[str]] = {
     "REVENUE": [
@@ -229,6 +389,13 @@ class FinancialClaim:
             object.__setattr__(self, "value", Decimal(str(self.value)))
         if not isinstance(self.tolerance_pct, Decimal):
             object.__setattr__(self, "tolerance_pct", Decimal(str(self.tolerance_pct)))
+        if self.tolerance_pct < Decimal("0"):
+            raise ValueError(f"tolerance_pct cannot be negative: {self.tolerance_pct}")
+        if self.tolerance_pct > MAX_PERMITTED_TOLERANCE:
+            raise ValueError(
+                f"tolerance_pct ({self.tolerance_pct}) exceeds maximum permitted tolerance of "
+                f"{MAX_PERMITTED_TOLERANCE} ({MAX_PERMITTED_TOLERANCE * 100:.0f}%)."
+            )
 
     @property
     def canonical_metric(self) -> str | None:
@@ -260,14 +427,14 @@ class FinancialClaim:
     def rounding_bounds(self) -> tuple[Decimal, Decimal]:
         """
         Calculates the half-step rounding interval implied by the stated decimal precision.
-        For example: 23.6 billion -> [23.55e9, 23.65e9).
+        Safely handles positive and negative accounting values by returning (min_bound, max_bound).
         """
         multiplier = normalize_scale(self.scale)
         d = self.stated_decimal_places
         half_step = (Decimal("10") ** (-d)) / Decimal("2")
-        lower_nom = self.value - half_step
-        upper_nom = self.value + half_step
-        return (lower_nom * multiplier, upper_nom * multiplier)
+        b1 = (self.value - half_step) * multiplier
+        b2 = (self.value + half_step) * multiplier
+        return min(b1, b2), max(b1, b2)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -310,6 +477,7 @@ class ParsedEvidenceCandidate:
     is_negative: bool
     matched_text: str
     source_url: str = ""
+    source_type: str = "table_row"  # "table_row" or "narrative"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -434,6 +602,54 @@ PROSE_INDICATORS = (
 )
 
 
+DISQUALIFIED_ROW_PATTERNS = [
+    r"\bsegment\b",
+    r"\bsegments\b",
+    r"\bdivision\b",
+    r"\bdivisions\b",
+    r"\bproduct\s+lines?\b",
+    r"\bgeographic\b",
+    r"\bper\s+share\b",
+    r"\bper\s+common\s+share\b",
+    r"\bper\s+diluted\s+share\b",
+    r"\bper\s+basic\s+share\b",
+    r"\bbasic\s+earnings\b",
+    r"\bdiluted\s+earnings\b",
+    r"\bbasic\s+and\s+diluted\b",
+    r"\beps\b",
+    r"\bshares\s+used\s+in\b",
+    r"\badjusted\b",
+    r"\bnon-gaap\b",
+    r"\bpro\s*forma\b",
+    r"\bconstant\s+currency\b",
+    r"\bcontinuing\s+operations\b",
+    r"\bdiscontinued\s+operations\b",
+]
+
+METRIC_SPECIFIC_DISQUALIFIERS: dict[str, list[str]] = {
+    "REVENUE": [
+        r"\bcost\s+of\b",
+        r"\bdeferred\s+revenue\b",
+        r"\bunearned\s+revenue\b",
+        r"\bgross\s+profit\b",
+    ],
+    "OPERATING_INCOME": [
+        r"\boperating\s+expenses?\b",
+        r"\bgross\s+profit\b",
+        r"\bnon-operating\b",
+        r"\btax\b",
+    ],
+    "NET_INCOME": [
+        r"\bbefore\s+income\s+taxes\b",
+        r"\bbefore\s+taxes\b",
+        r"\bnon-controlling\b",
+        r"\bnoncontrolling\b",
+        r"\bcomprehensive\s+income\b",
+        r"\bper\s+share\b",
+    ],
+}
+
+
 def extract_table_candidates(passage: EvidencePassage) -> list[ParsedEvidenceCandidate]:
     """
     Extracts structured candidates from multi-column financial statement tables.
@@ -445,7 +661,7 @@ def extract_table_candidates(passage: EvidencePassage) -> list[ParsedEvidenceCan
 
     # 1. Detect page-level / table-level scale header
     default_scale = "unit"
-    for line in lines[:25]:
+    for line in lines[:35]:
         m = SCALE_HEADER_RE.search(line)
         if m:
             default_scale = canonical_scale_name(m.group(1))
@@ -453,7 +669,7 @@ def extract_table_candidates(passage: EvidencePassage) -> list[ParsedEvidenceCan
 
     # 2. Detect default currency
     default_curr = "USD"
-    for line in lines[:25]:
+    for line in lines[:35]:
         if "euro" in line.lower() or "€" in line:
             default_curr = "EUR"
             break
@@ -465,8 +681,8 @@ def extract_table_candidates(passage: EvidencePassage) -> list[ParsedEvidenceCan
     col_years: list[str] = []
     header_line_idx = -1
 
+    # Check for single-line multi-year headers first
     for idx, line in enumerate(lines[:35]):
-        # Header rows must be concise tabular rows, not narrative sentences
         line_lower = f" {line.lower()} "
         if any(p in line_lower for p in PROSE_INDICATORS):
             continue
@@ -480,6 +696,39 @@ def extract_table_candidates(passage: EvidencePassage) -> list[ParsedEvidenceCan
             header_line_idx = idx
             break
 
+    # If no single line has multiple years, collect years across multi-line tabular header
+    if not col_years:
+        collected_years: list[str] = []
+        last_yr_idx = -1
+        for idx, line in enumerate(lines[:35]):
+            line_lower = f" {line.lower()} "
+            if any(p in line_lower for p in PROSE_INDICATORS):
+                continue
+
+            # Stop if encountering data rows that contain recognized metric aliases
+            is_metric = False
+            for canonical, aliases in SUPPORTED_METRICS.items():
+                for alias in aliases:
+                    if re.search(rf"(?i)\b{re.escape(alias)}\b", line):
+                        is_metric = True
+                        break
+                if is_metric:
+                    break
+            if is_metric:
+                break
+
+            words = line.split()
+            if len(words) <= 10:
+                years = re.findall(r"\b(20\d\d)\b", line)
+                for y in years:
+                    if y not in collected_years:
+                        collected_years.append(y)
+                        last_yr_idx = idx
+
+        if len(collected_years) >= 2:
+            col_years = collected_years
+            header_line_idx = last_yr_idx
+
     # If column headers found, scan following lines for financial metric rows
     if col_years and header_line_idx >= 0:
         for line in lines[header_line_idx + 1 :]:
@@ -489,6 +738,10 @@ def extract_table_candidates(passage: EvidencePassage) -> list[ParsedEvidenceCan
 
             line_lower = f" {line.lower()} "
             if any(p in line_lower for p in PROSE_INDICATORS):
+                continue
+
+            # Adversarial disambiguation: disqualify segment, EPS, non-GAAP, and operations rows
+            if any(re.search(pat, line, re.IGNORECASE) for pat in DISQUALIFIED_ROW_PATTERNS):
                 continue
 
             # Check if line begins with or contains a supported metric
@@ -508,8 +761,9 @@ def extract_table_candidates(passage: EvidencePassage) -> list[ParsedEvidenceCan
             if not matched_canonical:
                 continue
 
-            # If matched REVENUE, ensure it is not Cost of Sales or Cost of Revenue
-            if matched_canonical == "REVENUE" and re.search(r"(?i)\bcost\s+of\b", line):
+            # Metric-specific disqualification
+            specific_disqualifiers = METRIC_SPECIFIC_DISQUALIFIERS.get(matched_canonical, [])
+            if any(re.search(pat, line, re.IGNORECASE) for pat in specific_disqualifiers):
                 continue
 
             # Check if metric row indicates net loss
@@ -570,6 +824,7 @@ def extract_table_candidates(passage: EvidencePassage) -> list[ParsedEvidenceCan
                             is_negative=eff_neg,
                             matched_text=line,
                             source_url=passage.source_url,
+                            source_type="table_row",
                         )
                     )
 
@@ -588,7 +843,7 @@ def extract_narrative_candidates(passage: EvidencePassage) -> list[ParsedEvidenc
     for canonical, aliases in SUPPORTED_METRICS.items():
         for alias in aliases:
             pattern = re.compile(
-                rf"(?i)\b{re.escape(alias)}\b[^.\n]{{0,60}}?\b(?:for|in|of)?\s*(?:fiscal\s+)?\b(20\d\d)\b[^.\n]{{0,40}}?\b(?:was|of|were|reached|totaled)\s+([$€£]?)\s*([0-9]{{1,3}}(?:,[0-9]{{3}})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)\s*(billions?|millions?|thousands?)?",
+                rf"(?i)\b{re.escape(alias)}\b[^.\n]{{0,60}}?\b(?:for|in|of)?\s*(?:fiscal\s+)?\b(20\d\d)\b[^.\n]{{0,40}}?\b(?:was(?:\s+(?:reported|stated|estimated)\s+as)?|of|were|reached|totaled)\s+([$€£]?)\s*([0-9]{{1,3}}(?:,[0-9]{{3}})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)\s*(billions?|millions?|thousands?)?",
             )
             for m in pattern.finditer(text):
                 period = m.group(1)
@@ -605,6 +860,26 @@ def extract_narrative_candidates(passage: EvidencePassage) -> list[ParsedEvidenc
                 if not curr_sym and (not m.group(4) or raw_scale == "unit"):
                     continue
 
+                matched_sentence = (
+                    text[max(0, m.start() - 25) : min(len(text), m.end() + 25)]
+                    .replace("\n", " ")
+                    .strip()
+                )
+
+                # Adversarial filters: segment, EPS, adjusted, continuing operations
+                if any(
+                    re.search(pat, matched_sentence, re.IGNORECASE)
+                    for pat in DISQUALIFIED_ROW_PATTERNS
+                ):
+                    continue
+
+                specific_disqualifiers = METRIC_SPECIFIC_DISQUALIFIERS.get(canonical, [])
+                if any(
+                    re.search(pat, matched_sentence, re.IGNORECASE)
+                    for pat in specific_disqualifiers
+                ):
+                    continue
+
                 parsed = parse_numeric_token(raw_val)
                 if parsed is None:
                     continue
@@ -614,11 +889,6 @@ def extract_narrative_candidates(passage: EvidencePassage) -> list[ParsedEvidenc
                 mult = normalize_scale(scale_norm)
                 curr_norm = normalize_currency(curr_sym) if curr_sym else "USD"
 
-                matched_sentence = (
-                    text[max(0, m.start() - 15) : min(len(text), m.end() + 15)]
-                    .replace("\n", " ")
-                    .strip()
-                )
                 candidates.append(
                     ParsedEvidenceCandidate(
                         source_doc=passage.source_doc,
@@ -633,6 +903,7 @@ def extract_narrative_candidates(passage: EvidencePassage) -> list[ParsedEvidenc
                         is_negative=is_neg,
                         matched_text=matched_sentence,
                         source_url=passage.source_url,
+                        source_type="narrative",
                     )
                 )
 
@@ -653,6 +924,25 @@ def extract_narrative_candidates(passage: EvidencePassage) -> list[ParsedEvidenc
                 if not curr_sym and (not m.group(3) or raw_scale == "unit"):
                     continue
 
+                matched_sentence = (
+                    text[max(0, m.start() - 25) : min(len(text), m.end() + 25)]
+                    .replace("\n", " ")
+                    .strip()
+                )
+
+                if any(
+                    re.search(pat, matched_sentence, re.IGNORECASE)
+                    for pat in DISQUALIFIED_ROW_PATTERNS
+                ):
+                    continue
+
+                specific_disqualifiers = METRIC_SPECIFIC_DISQUALIFIERS.get(canonical, [])
+                if any(
+                    re.search(pat, matched_sentence, re.IGNORECASE)
+                    for pat in specific_disqualifiers
+                ):
+                    continue
+
                 parsed = parse_numeric_token(raw_val)
                 if parsed is None:
                     continue
@@ -662,11 +952,6 @@ def extract_narrative_candidates(passage: EvidencePassage) -> list[ParsedEvidenc
                 mult = normalize_scale(scale_norm)
                 curr_norm = normalize_currency(curr_sym) if curr_sym else "USD"
 
-                matched_sentence = (
-                    text[max(0, m.start() - 15) : min(len(text), m.end() + 15)]
-                    .replace("\n", " ")
-                    .strip()
-                )
                 candidates.append(
                     ParsedEvidenceCandidate(
                         source_doc=passage.source_doc,
@@ -681,6 +966,7 @@ def extract_narrative_candidates(passage: EvidencePassage) -> list[ParsedEvidenc
                         is_negative=is_neg,
                         matched_text=matched_sentence,
                         source_url=passage.source_url,
+                        source_type="narrative",
                     )
                 )
 
@@ -693,8 +979,8 @@ def parse_evidence_candidates(passage: EvidencePassage) -> list[ParsedEvidenceCa
     all_cands.extend(extract_table_candidates(passage))
     all_cands.extend(extract_narrative_candidates(passage))
 
-    # Deduplicate exact candidate matches (same doc, page, metric, period, canonical_value)
-    unique_map: dict[tuple[str, int, str, str, Decimal], ParsedEvidenceCandidate] = {}
+    # Deduplicate exact candidate matches (doc, page, metric, period, value, source_type)
+    unique_map: dict[tuple[str, int, str, str, Decimal, str], ParsedEvidenceCandidate] = {}
     for c in all_cands:
         key = (
             c.source_doc,
@@ -702,6 +988,7 @@ def parse_evidence_candidates(passage: EvidencePassage) -> list[ParsedEvidenceCa
             c.canonical_metric,
             c.reporting_period,
             c.canonical_value,
+            c.source_type,
         )
         if key not in unique_map:
             unique_map[key] = c
@@ -779,25 +1066,41 @@ def verify_claim(
         )
 
     # Gate 4: Filter passages matching entity / document scope
-    target_entity = claim.entity.strip().lower()
-    target_doc = claim.doc_name.strip().lower() if claim.doc_name else None
+    target_doc = claim.doc_name.strip() if claim.doc_name else None
 
     scoped_passages: list[EvidencePassage] = []
+    entity_rejection_reasons: list[str] = []
+
     for p in evidence:
-        doc_lower = p.source_doc.lower()
-        if target_doc and target_doc not in doc_lower:
+        if target_doc:
+            clean_doc = p.source_doc.replace(".pdf", "").replace(".PDF", "").strip().lower()
+            clean_target = target_doc.replace(".pdf", "").replace(".PDF", "").strip().lower()
+            if clean_target != clean_doc and clean_target not in clean_doc:
+                continue
+
+        # CRITICAL: Specifying an explicit filing must NEVER bypass company identity checks!
+        is_valid_entity, reason = validate_entity_match(
+            claim_entity=claim.entity,
+            doc_name=p.source_doc,
+            passage_metadata=p.metadata,
+        )
+        if not is_valid_entity:
+            entity_rejection_reasons.append(f"Passage '{p.source_doc}': {reason}")
             continue
-        if not target_doc and target_entity not in doc_lower:
-            continue
+
         scoped_passages.append(p)
 
     if not scoped_passages:
-        return VerificationResult(
-            verdict=VerificationVerdict.INSUFFICIENT_EVIDENCE,
-            explanation=(
+        if entity_rejection_reasons:
+            explanation = f"Entity validation failed: {entity_rejection_reasons[0]}"
+        else:
+            explanation = (
                 f"No evidence passages matched entity '{claim.entity}' or doc '{claim.doc_name}'. "
                 f"Retrieved passages were from: {sorted(set(p.source_doc for p in evidence))}."
-            ),
+            )
+        return VerificationResult(
+            verdict=VerificationVerdict.INSUFFICIENT_EVIDENCE,
+            explanation=explanation,
             claim=claim,
             parsed_candidates=[],
             citations=[],
@@ -906,12 +1209,17 @@ def verify_claim(
     lower_bound, upper_bound = claim.rounding_bounds
     within_rounding_interval = lower_bound <= evidence_val <= upper_bound
 
-    if evidence_val != Decimal("0"):
-        rel_diff = abs(claim_val - evidence_val) / abs(evidence_val)
+    # Safe relative difference when evidence_val is zero
+    if evidence_val == Decimal("0"):
+        if claim_val == Decimal("0"):
+            rel_diff = Decimal("0")
+            within_relative_tolerance = True
+        else:
+            rel_diff = Decimal("Infinity")
+            within_relative_tolerance = False
     else:
-        rel_diff = abs(claim_val - evidence_val)
-
-    within_relative_tolerance = rel_diff <= claim.tolerance_pct
+        rel_diff = abs(claim_val - evidence_val) / abs(evidence_val)
+        within_relative_tolerance = rel_diff <= claim.tolerance_pct
 
     # Prepare citation
     citation = EvidenceCitation(
@@ -927,7 +1235,11 @@ def verify_claim(
         cand_str = f"{best_candidate.nominal_value:,.2f} {best_candidate.scale}"
         ev_str = f"{claim.canonical_currency} {evidence_val:,.2f}"
         claim_str = f"{claim.value} {claim.scale} ({claim.canonical_currency} {claim_val:,.2f})"
-        diff_str = f"{rel_diff * 100:.3f}% <= {claim.tolerance_pct * 100:.2f}%"
+        diff_str = (
+            "0.000% (exact zero match)"
+            if evidence_val == Decimal("0") and claim_val == Decimal("0")
+            else f"{rel_diff * 100:.3f}% <= {claim.tolerance_pct * 100:.2f}%"
+        )
         explanation = (
             f"Filing '{best_candidate.source_doc}' page {best_candidate.page_index} "
             f"(display page {citation.display_page}) reports {canonical_metric} for period "
@@ -945,17 +1257,24 @@ def verify_claim(
         )
     else:
         # Materially contradicted!
-        diff_pct = ((claim_val - evidence_val) / abs(evidence_val)) * 100
-        sign_str = f"+{diff_pct:.2f}%" if diff_pct > 0 else f"{diff_pct:.2f}%"
         cand_str = f"{best_candidate.nominal_value:,.2f} {best_candidate.scale}"
         ev_str = f"{claim.canonical_currency} {evidence_val:,.2f}"
         claim_str = f"{claim.value} {claim.scale} ({claim.canonical_currency} {claim_val:,.2f})"
         tol_str = f"{claim.tolerance_pct * 100:.2f}%"
+        if evidence_val == Decimal("0"):
+            diff_msg = (
+                f"by absolute difference of {claim_val - evidence_val:+,.2f} against zero evidence "
+                f"(relative difference undefined; exceeds tolerance of {tol_str})"
+            )
+        else:
+            diff_pct = ((claim_val - evidence_val) / abs(evidence_val)) * 100
+            sign_str = f"+{diff_pct:.2f}%" if diff_pct > 0 else f"{diff_pct:.2f}%"
+            diff_msg = f"by {sign_str} (exceeds tolerance of {tol_str})"
         explanation = (
             f"Filing '{best_candidate.source_doc}' page {best_candidate.page_index} "
             f"(display page {citation.display_page}) unambiguously reports {canonical_metric} "
             f"for period {norm_period} as {cand_str} ({ev_str}), materially contradicting "
-            f"the claimed value of {claim_str} by {sign_str} (exceeds tolerance of {tol_str})."
+            f"the claimed value of {claim_str} {diff_msg}."
         )
         return VerificationResult(
             verdict=VerificationVerdict.CONTRADICTED,

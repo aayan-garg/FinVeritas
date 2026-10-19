@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/Tests-80%20Total%20%7C%2077%20Passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-91%20Total%20%7C%2088%20Passed-brightgreen.svg)]()
 [![Code Style](https://img.shields.io/badge/Code%20Style-Ruff-black.svg)](https://github.com/astral-sh/ruff)
 
 **FinVeritas** is an end-to-end financial intelligence and claim verification framework. It is engineered to detect managerial question-evasion during corporate earnings-call Q&A sessions and audit extracted financial claims against official regulatory filings (10-K, 10-Q, 8-K) through hybrid lexical-dense retrieval and evidence grounding.
@@ -284,7 +284,7 @@ finveritas/
 │   ├── answer_quality/                        # Checkpoint 06 Answer-quality metrics & config
 │   └── advanced_retrieval/                    # Checkpoint 07 Hybrid retrieval configs
 │
-└── tests/unit/                                # Automated verification test suite (80 tests)
+└── tests/unit/                                # Automated verification test suite (91 tests: 88 passed, 3 skipped)
     ├── test_baselines.py                      # TF-IDF baseline and leakage-free split tests
     ├── test_dataset_audit.py                  # EvasionBench schema and integrity tests
     ├── test_transformer_classifier.py        # Tokenization, truncation and model forward tests
@@ -312,7 +312,7 @@ pip install -e ".[dev,nlp]"
 ```
 
 ### 2. Run Test Suite
-Verify the full test suite across NLP, Retrieval, and Verification tracks (80 tests: 77 passed, 3 skipped):
+Verify the full test suite across NLP, Retrieval, and Verification tracks (91 tests: 88 passed, 3 skipped):
 ```bash
 pytest -v
 ```
@@ -363,5 +363,5 @@ python scripts/verify_claim.py \
 2. **Evaluation Population Integrity:** Standard question-disjoint and strict answer-disjoint splits represent distinct evaluation populations. Metric differences reflect both partition distribution shift and shortcut mitigation; they cannot be treated as a pure causal measurement of template memorization.
 3. **Retrieval Denominator Governance:** Benchmarks must be reported over the full 150-question corpus ($N=150$) rather than eligible-only subsets to penalize missing documents transparently.
 4. **Answer Quality is Not Truth:** Fluent model answers must be independently cross-referenced against audited SEC filings via symbolic numerical validation before being relied upon by financial analysts.
-5. **Epistemic Abstention in Claim Verification:** The numerical claim verifier enforces a fail-closed policy. Retrieval omissions, ambiguous tables, or unparseable context trigger `INSUFFICIENT_EVIDENCE`. Contradictions are declared only when directly comparable filing evidence affirmatively conflicts on the exact metric and period.
+5. **Epistemic Abstention & MVP Scope:** The numerical claim verifier is a scoped research MVP bounded to 5 scalar GAAP metrics, not a general-purpose financial verifier. It enforces a strict fail-closed policy: retrieval omissions, ambiguous table scopes, conflicting candidates, or unvalidated entity mappings trigger `INSUFFICIENT_EVIDENCE`. Free-form natural-language claims require explicit structured parameters for verification.
 

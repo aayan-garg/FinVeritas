@@ -25,9 +25,11 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 from finveritas.rag_indexing.financebench_data import (
     PageCorpusItem,
@@ -35,10 +37,13 @@ from finveritas.rag_indexing.financebench_data import (
 )
 from finveritas.rag_indexing.retrievers import BM25Retriever
 from finveritas.verification import (
+    KNOWN_ENTITY_MAPPINGS,
     EvidencePassage,
     FinancialClaim,
     VerificationResult,
     VerificationVerdict,
+    normalize_period,
+    validate_entity_match,
     verify_claim,
 )
 
@@ -60,48 +65,14 @@ def resolve_worktree_data_path(rel_path: Path) -> Path:
     return rel_path
 
 
-def resolve_filing_pdf(
-    entity: str,
-    period: str,
-    doc_name: str | None,
-    pdf_dir: Path,
-) -> tuple[Path | None, str]:
-    """
-    Locates the corresponding PDF filing in the local directory.
-    If doc_name is explicitly provided, checks for {doc_name}.pdf.
-    Otherwise searches for matching filings by entity and period.
-    """
-    pdf_dir = resolve_worktree_data_path(pdf_dir)
-    if not pdf_dir.is_dir():
-        return None, doc_name or f"{entity}_{period}"
-
-    if doc_name:
-        direct_path = pdf_dir / f"{doc_name}.pdf"
-        if direct_path.is_file():
-            return direct_path, doc_name
-        # Case insensitive match
-        for f in pdf_dir.glob("*.pdf"):
-            if f.stem.lower() == doc_name.lower():
-                return f, f.stem
-
-    # Search by entity and year
-    ent_norm = entity.replace(" ", "").lower()
-    for f in pdf_dir.glob("*.pdf"):
-        stem_lower = f.stem.lower()
-        if ent_norm in stem_lower and period in stem_lower:
-            return f, f.stem
-
-    return None, doc_name or f"{entity}_{period}"
-
-
-def load_doc_link_map(metadata_path: Path | None) -> dict[str, str]:
+def load_document_metadata(metadata_path: Path | None) -> dict[str, dict[str, Any]]:
     """Loads document information map if local metadata JSONL is present."""
     if not metadata_path:
         return {}
     metadata_path = resolve_worktree_data_path(metadata_path)
     if not metadata_path.is_file():
         return {}
-    doc_links: dict[str, str] = {}
+    doc_info: dict[str, dict[str, Any]] = {}
     try:
         with open(metadata_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -110,12 +81,102 @@ def load_doc_link_map(metadata_path: Path | None) -> dict[str, str]:
                     continue
                 info = json.loads(line_str)
                 name = info.get("doc_name")
-                link = info.get("doc_link")
-                if name and link:
-                    doc_links[name] = link
+                if name:
+                    doc_info[name] = info
     except Exception as err:
-        logger.debug(f"Could not load doc links: {err}")
-    return doc_links
+        logger.debug(f"Could not load doc metadata: {err}")
+    return doc_info
+
+
+def load_doc_link_map(metadata_path: Path | None) -> dict[str, str]:
+    """Loads document URL link map if local metadata JSONL is present."""
+    meta = load_document_metadata(metadata_path)
+    return {k: v.get("doc_link", "") for k, v in meta.items() if v.get("doc_link")}
+
+
+def resolve_filing_pdf(
+    entity: str,
+    period: str,
+    doc_name: str | None,
+    pdf_dir: Path,
+    metadata_map: dict[str, dict[str, Any]] | None = None,
+) -> tuple[Path | None, str]:
+    """
+    Locates the corresponding PDF filing in the local directory.
+    If doc_name is explicitly provided, verifies company identity and checks for {doc_name}.pdf.
+    Otherwise searches for matching filings by entity and period.
+    Fails closed if the entity cannot be reliably validated against the document.
+    """
+    pdf_dir = resolve_worktree_data_path(pdf_dir)
+    if not pdf_dir.is_dir():
+        return None, doc_name or f"{entity}_{period}"
+
+    if doc_name:
+        meta = metadata_map.get(doc_name) if metadata_map else None
+        valid_match, reason = validate_entity_match(entity, doc_name, meta)
+        if not valid_match:
+            logger.warning(f"Entity mismatch in resolve_filing_pdf: {reason}")
+            return None, doc_name
+
+        direct_path = pdf_dir / f"{doc_name}.pdf"
+        if direct_path.is_file():
+            return direct_path, doc_name
+        # Case insensitive match
+        for f in pdf_dir.glob("*.pdf"):
+            if f.stem.lower() == doc_name.lower():
+                return f, f.stem
+
+    # Search by entity and year using strict entity validation (no vague substrings)
+    norm_p = normalize_period(period) or period
+    for f in pdf_dir.glob("*.pdf"):
+        meta = metadata_map.get(f.stem) if metadata_map else None
+        valid_match, _ = validate_entity_match(entity, f.stem, meta)
+        if valid_match and norm_p in f.stem:
+            return f, f.stem
+
+    return None, doc_name or f"{entity}_{period}"
+
+
+def check_claim_text_inconsistencies(
+    claim_text: str | None,
+    entity: str,
+    metric: str,
+    period: str,
+    value: str,
+) -> list[str]:
+    """
+    Detects obvious inconsistencies between non-authoritative claim text
+    and authoritative structured CLI arguments.
+    """
+    if not claim_text:
+        return []
+
+    warnings: list[str] = []
+    text_lower = claim_text.lower()
+
+    # Check for obvious period conflict (e.g. claim text mentions 2021 but --period 2022)
+    years_in_text = re.findall(r"\b(20\d\d)\b", claim_text)
+    norm_p = normalize_period(period)
+    if norm_p and years_in_text and norm_p not in years_in_text:
+        warnings.append(
+            f"Period discrepancy: claim text mentions year(s) {years_in_text} "
+            f"but authoritative --period is '{period}'."
+        )
+
+    # Check for obvious entity conflict
+    for canon, aliases in KNOWN_ENTITY_MAPPINGS.items():
+        all_names = [a.lower() for a in aliases] + [canon.lower()]
+        for name in all_names:
+            if re.search(rf"\b{re.escape(name)}\b", text_lower):
+                valid_match, _ = validate_entity_match(entity, canon)
+                if not valid_match:
+                    warnings.append(
+                        f"Entity discrepancy: claim text mentions '{name}' "
+                        f"but authoritative --entity is '{entity}'."
+                    )
+                break
+
+    return warnings
 
 
 def run_claim_verification(
@@ -136,16 +197,42 @@ def run_claim_verification(
     """
     Coordinates local retrieval and deterministic claim verification.
     """
-    claim = FinancialClaim(
-        entity=entity,
-        metric=metric,
-        reporting_period=period,
-        value=Decimal(value),
-        scale=scale,
-        currency=currency,
-        doc_name=doc_name,
-        tolerance_pct=Decimal(tolerance),
-    )
+    try:
+        tol_dec = Decimal(tolerance)
+    except Exception:
+        tol_dec = Decimal("0.005")
+
+    try:
+        claim = FinancialClaim(
+            entity=entity,
+            metric=metric,
+            reporting_period=period,
+            value=Decimal(value),
+            scale=scale,
+            currency=currency,
+            doc_name=doc_name,
+            tolerance_pct=tol_dec,
+        )
+    except ValueError as e:
+        return VerificationResult(
+            verdict=VerificationVerdict.INSUFFICIENT_EVIDENCE,
+            explanation=f"Invalid claim parameter: {e}",
+            claim=FinancialClaim(
+                entity=entity,
+                metric=metric,
+                reporting_period=period,
+                value=Decimal(value),
+                scale=scale,
+                currency=currency,
+                doc_name=doc_name,
+                tolerance_pct=Decimal("0.005"),
+            ),
+            parsed_candidates=[],
+            citations=[],
+            limitations=[str(e)],
+        )
+
+    doc_meta_map = load_document_metadata(metadata_path)
 
     # Check local filing PDF availability
     pdf_path, resolved_doc = resolve_filing_pdf(
@@ -153,9 +240,24 @@ def run_claim_verification(
         period=period,
         doc_name=doc_name,
         pdf_dir=pdf_dir,
+        metadata_map=doc_meta_map,
     )
 
     if not pdf_path or not pdf_path.is_file():
+        # Check if entity validation specifically rejected the document
+        if doc_name:
+            doc_meta = doc_meta_map.get(doc_name)
+            is_valid, reason = validate_entity_match(entity, doc_name, doc_meta)
+            if not is_valid:
+                return VerificationResult(
+                    verdict=VerificationVerdict.INSUFFICIENT_EVIDENCE,
+                    explanation=f"Entity validation failed: {reason}",
+                    claim=claim,
+                    parsed_candidates=[],
+                    citations=[],
+                    limitations=["Entity-to-document identity mismatch; fail closed."],
+                )
+
         return VerificationResult(
             verdict=VerificationVerdict.INSUFFICIENT_EVIDENCE,
             explanation=(
@@ -168,10 +270,8 @@ def run_claim_verification(
             limitations=["Local filing corpus unavailable."],
         )
 
-
     # Extract pages from the targeted filing
-    doc_links = load_doc_link_map(metadata_path)
-    doc_url = doc_links.get(resolved_doc, "")
+    doc_url = doc_meta_map.get(resolved_doc, {}).get("doc_link", "")
 
     pages: list[PageCorpusItem] = extract_pdf_pages(
         pdf_path=pdf_path,
@@ -208,7 +308,10 @@ def run_claim_verification(
                     source_url=full_page.doc_link or doc_url,
                     retrieval_score=res.score,
                     retrieval_rank=res.rank,
-                    metadata={"char_count": full_page.char_count},
+                    metadata={
+                        "char_count": full_page.char_count,
+                        "company": doc_meta_map.get(res.doc_name, {}).get("company", ""),
+                    },
                 )
             )
 
@@ -216,7 +319,10 @@ def run_claim_verification(
     return verify_claim(claim, passages)
 
 
-def format_cli_output(result: VerificationResult) -> str:
+def format_cli_output(
+    result: VerificationResult,
+    claim_text: str | None = None,
+) -> str:
     """Formats verification outcome for human-readable terminal display."""
     lines = []
     lines.append("=" * 78)
@@ -225,6 +331,12 @@ def format_cli_output(result: VerificationResult) -> str:
 
     c = result.claim
     lines.append("\n[1] CLAIM SUMMARY")
+    if claim_text:
+        lines.append(f'  Non-Authoritative Text: "{claim_text}"')
+        lines.append(
+            "  (Notice: text is descriptive only; verification is governed strictly by "
+            "authoritative structured fields below)"
+        )
     lines.append(f"  Entity:           {c.entity}")
     if c.doc_name:
         lines.append(f"  Target Document:  {c.doc_name}")
@@ -262,12 +374,14 @@ def format_cli_output(result: VerificationResult) -> str:
         claimed_val_str = f"{claim_nom} ({c.canonical_currency} {c.canonical_value:,.2f})"
         lines.append(f"  Claimed Value:    {claimed_val_str}")
 
-
-
+        diff = c.canonical_value - cand.canonical_value
         if cand.canonical_value != Decimal("0"):
-            diff = c.canonical_value - cand.canonical_value
             pct_diff = (diff / abs(cand.canonical_value)) * 100
             lines.append(f"  Difference:       {diff:+,.2f} ({pct_diff:+.3f}%)")
+        else:
+            lines.append(
+                f"  Difference:       {diff:+,.2f} (evidence value is zero, percentage undefined)"
+            )
 
     lines.append("\n[5] METHODOLOGICAL LIMITATIONS")
     for lim in result.limitations:
@@ -284,7 +398,11 @@ def main() -> None:
     parser.add_argument(
         "--claim",
         default=None,
-        help="Optional text representation of the claim (for display and logging).",
+        help=(
+            "Optional descriptive, non-authoritative text representation of the claim "
+            "(for display and logging only; verification is governed strictly by the "
+            "structured --entity, --metric, --period, --value, --scale, --currency flags)."
+        ),
     )
     parser.add_argument(
         "--entity",
@@ -313,7 +431,10 @@ def main() -> None:
     parser.add_argument(
         "--tolerance",
         default="0.005",
-        help="Relative verification tolerance (default: 0.005 = 0.5%%).",
+        help=(
+            "Relative verification tolerance "
+            "(default: 0.005 = 0.5%%, max permitted: 0.20 = 20%%)."
+        ),
     )
     parser.add_argument(
         "--pdf-dir",
@@ -339,6 +460,18 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    # Detect obvious discrepancies between non-authoritative claim text and structured arguments
+    if args.claim:
+        inconsistencies = check_claim_text_inconsistencies(
+            claim_text=args.claim,
+            entity=args.entity,
+            metric=args.metric,
+            period=args.period,
+            value=args.value,
+        )
+        for inc in inconsistencies:
+            print(f"[WARNING] Non-authoritative claim text discrepancy: {inc}", file=sys.stderr)
+
     result = run_claim_verification(
         entity=args.entity,
         metric=args.metric,
@@ -356,7 +489,7 @@ def main() -> None:
     if args.json:
         print(json.dumps(result.to_dict(), indent=2))
     else:
-        print(format_cli_output(result))
+        print(format_cli_output(result, claim_text=args.claim))
 
     sys.exit(0)
 

@@ -323,6 +323,50 @@ Checkpoint 09 delivers FinVeritas's first end-to-end evidence-grounded claim-ver
 
 FinVeritas provides a verifiable, scientifically grounded architecture for auditing corporate financial claims against regulatory ground truth.
 
-### Immediate Next Steps
-- **Checkpoint 10**: Integrate the Neural Evasion Classifier (Stage 1) with the Claim Verifier (Stage 3) into an end-to-end earnings-call audit pipeline (`scripts/audit_earnings_call.py`).
-- **Checkpoint 11**: Staged background execution of the full 37,118-chunk dense vector embedding to enable hybrid dense-lexical retrieval for Stage 3 evidence localization.
+---
+
+## 8. Checkpoint 10: Adversarial Hardening of Numeric Verification
+
+Prior to production integration, Checkpoint 10 subjected the numeric verifier and CLI pipeline to targeted adversarial testing and edge-case hardening across five critical failure modes:
+
+### 8.1 Entity-to-Source Validation & Closed-World Fail-Closed Guardrails
+- **No Bypass on Explicit Document**: Specifying `--doc-name` or passing an explicit filing no longer bypasses entity identity validation.
+- **Fail-Closed Resolution**: If entity metadata is missing, ambiguous, or maps to an unsupported company, the verifier abstains with `INSUFFICIENT_EVIDENCE` rather than guessing or performing unverified matching.
+- **Elimination of Loose Substrings**: Substring matching (e.g. matching `AMD` inside `AMDOCS` or `BA` inside general text) is strictly prohibited. `KNOWN_ENTITY_MAPPINGS` provides conservative, canonical alias sets for SEC filers.
+- **Metadata Conflict Detection**: If the candidate document or metadata references an entity conflicting with the claim entity (e.g., a Boeing claim against an AMD 10-K filing), the verifier immediately rejects the passage with `INSUFFICIENT_EVIDENCE`.
+
+### 8.2 Safe Zero and Numeric-Edge Arithmetic
+- **Division-by-Zero Elimination**: When an evidence candidate reports exactly `0`, relative difference calculation $|v_{\text{claim}} - v_{\text{ev}}| / |v_{\text{ev}}|$ yields undefined division. The engine now assigns `Decimal("Infinity")` (or `0` when claim is also zero), safely transitioning to absolute difference reporting without crashing.
+- **Strict Tolerance Validation**: Tolerances are strictly bounded to $[0, 0.20]$ (`MAX_PERMITTED_TOLERANCE = Decimal("0.20")`, 20%). Negative or excessive tolerances raise explicit `ValueError` validation exceptions.
+- **Negative Accounting Values**: Decimal interval bounds correctly account for directional negative numbers (e.g., $-\$5.0\text{B} \pm \$0.05\text{B} = [-\$5.05\text{B}, -\$4.95\text{B}]$).
+
+### 8.3 Metric-Scope Disambiguation & Adversarial Filtering
+- **Segment Revenue Disqualification**: Rows or narrative fragments mentioning segments, divisions, product lines, or geographic regions are disqualified from matching consolidated `REVENUE`.
+- **Per-Share / EPS Disqualification**: Rows reporting diluted or basic net income per share or EPS figures are rejected when evaluating total `NET_INCOME`.
+- **Non-GAAP / Adjusted Metric Filtering**: Rows containing `adjusted`, `non-gaap`, `pro forma`, or `constant currency` are disqualified from matching GAAP line items.
+- **Continuing Operations Filtering**: Figures designated as `continuing operations` or `discontinued operations` are excluded from total consolidated metrics.
+- **Multi-Line Table Header Parsing**: Enhanced table extraction collects multi-row header year tokens (e.g., AMD 2022 10-K Consolidated Statements of Operations where years are formatted across adjacent header lines).
+
+### 8.4 Real-Filing Scale Conversion Proof
+- **Deterministic Statement-Table Extraction**: Verified against local `AMD_2022_10K.pdf` page 53 (Consolidated Statements of Operations).
+- **Exact Candidate Identification**: Extracts row candidate `Net sales $ 23,601 (In millions)`, proving scale conversion to canonical $23,601,000,000\text{ USD}$ supporting the rounded claim of $\$23.6\text{ billion}$ (`source_type == "table_row"`).
+- **Prose Disqualification**: Validated that the test passes strictly from table row extraction, independent of narrative repetitions in MD&A.
+
+### 8.5 Input Semantics & Discrepancy Auditing
+- **Non-Authoritative Claim Text**: The `--claim` CLI flag is explicitly documented and labeled as a non-authoritative description.
+- **Authoritative Structured Fields**: Verification execution is strictly governed by `--metric`, `--period`, `--value`, `--scale`, `--currency`, and `--tolerance`.
+- **Discrepancy Warning**: The CLI automatically audits descriptive text against structured fields, warning operators if entities or years in the description contradict authoritative parameters.
+
+### 8.6 Regression Test Summary
+- Total numeric verifier unit tests: **22 passed**.
+- Full test suite: **88 passed, 3 skipped**.
+- Ruff linter: **All checks passed**.
+- Dependencies: `pip check` confirmed zero broken requirements.
+
+### 8.7 Remaining Limitations & Boundaries
+While Checkpoint 10 eliminates major classes of false positives and numeric edge-case bugs, the following boundaries remain intentionally unaddressed:
+1. **No Automatic NLP Claim Parsing**: Free-form text claims are NOT parsed automatically into structured metrics; claims must be supplied with explicit structured parameters.
+2. **Fixed Metric Catalog**: Limited to 5 primary GAAP metrics (`REVENUE`, `NET_INCOME`, `OPERATING_INCOME`, `TOTAL_ASSETS`, `CAPITAL_EXPENDITURES`).
+3. **No Multi-Document Accounting Reconciliations**: Does not synthesize numbers across multiple statements or calculate composite ratios (e.g., EBITDA from operating income + D&A).
+4. **Local Corpus Dependency**: Verification relies on available local PDF filings or supplied evidence passages.
+
