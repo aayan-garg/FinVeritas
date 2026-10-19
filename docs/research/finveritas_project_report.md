@@ -136,11 +136,13 @@ FinanceBench provides a challenging evaluation ground for financial question ans
 
 ### 3.2 Retrieval Baselines (FinanceBench Total Benchmark, $N=150$)
 
-| Retriever | Granularity | Document Recall@1 | Document Recall@5 | Evidence Page Recall@1 | Evidence Page Recall@5 | MRR |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **TF-IDF Baseline** | Full Page | 42.67% | 53.33% | 4.67% | 10.67% | 0.284 |
-| **BM25 Baseline** | Full Page | 48.00% | **59.33%** | 6.00% | **12.67%** | **0.327** |
-| **BM25 Chunk Baseline** *(Preliminary)* | 750-char Chunk | 48.67% | **60.00%** | 6.67% | **14.00%** | **0.334** |
+All full-corpus lexical baselines are evaluated across all 150 benchmark questions and 12,013 PDF pages (37,118 chunks across 84 SEC corporate filings):
+
+| Retriever Configuration | Granularity | Candidate Space | Document Recall@1 | Document Recall@5 | Evidence Page Recall@1 | Evidence Page Recall@5 | Page MRR |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Word TF-IDF Baseline** | Full Page | 12,013 pages | 42.67% | 53.33% | 4.67% | 10.67% | 0.284 |
+| **BM25 Page Baseline** | Full Page | 12,013 pages | 35.33% | **59.33%** | 8.67% | **12.67%** | **0.1027** |
+| **BM25 Chunk Baseline** (256/64) | 256-token Chunk | 37,118 chunks | 29.33% | **60.00%** | 5.33% | **14.00%** | 0.0887 |
 
 ---
 
@@ -163,21 +165,21 @@ To evaluate model-generated financial responses, 2,400 model completions across 
 >
 > In FinanceBench, completions are labeled for perceived stylistic and structural competence (e.g., whether the model attempted the question or refused). An executive answer or model completion can be fluent, coherent, and highly confident—scoring as "high quality"—while containing entirely fabricated revenue figures or hallucinated margin percentages.
 >
-> True financial verification requires cross-document numerical anchoring and symbolic arithmetic validation against audited SEC filings, not superficial linguistic quality scoring.
+> True financial claim verification is **under active development** and requires cross-document numerical anchoring and symbolic arithmetic validation against audited SEC filings, not superficial linguistic quality scoring.
 
 ---
 
-## 5. Track 4: Advanced Hybrid Retrieval Architecture
+## 5. Track 4: Advanced Hybrid Retrieval & Bounded Smoke Test
 
 ### 5.1 System Architecture
-Checkpoint 07 implemented an advanced hybrid retrieval engine combining lexical precision with dense semantic representations:
+Checkpoints 07 and 08 implemented an advanced hybrid retrieval engine combining lexical precision with dense semantic representations:
 
 ```
-Query: "What was Q3 operating cash flow for Microsoft?"
+Query: "What was Q3 operating cash flow for Boeing?"
    │
    ├──> Tokenize ─────────> BM25 Scoring (Okapi k1=1.5, b=0.75) ────────┐
    │                                                                     │
-   └──> Embed (all-MiniLM) ─> Dense Dot-Product / Cosine Similarity ────┤
+   └──> Embed (bge-small) ─> Dense Dot-Product / Cosine Similarity ─────┤
                                                                          │
                                                                          ▼
                                                      Reciprocal Rank Fusion (RRF, k=60)
@@ -189,24 +191,38 @@ Query: "What was Q3 operating cash flow for Microsoft?"
                                                      Top-K Evidence Pages & Passages
 ```
 
-1. **Sliding-Window Chunking:** 750-character window with 150-character overlap. Specifically engineered to preserve financial notation (currency symbols `$`, percentages `%`, negative parenthetical accounting notation `(120)`). Total corpus: 37,118 chunks across 150 SEC documents.
-2. **Dense Neural Embeddings:** `sentence-transformers/all-MiniLM-L6-v2` generating 384-dimensional embeddings.
+1. **Sliding-Window Chunking:** 256-token window with 64-token overlap, specifically engineered to preserve financial notation (currency symbols `$`, percentages `%`, negative parenthetical accounting notation `(120)`). Total corpus: 37,118 chunks across 84 SEC documents.
+2. **Dense Neural Embeddings:** `BAAI/bge-small-en-v1.5` generating 384-dimensional normalized vector representations.
 3. **Reciprocal Rank Fusion (RRF):** Blends ranked lists with parameter $k=60$:
    $$RRF\_Score(d) = \sum_{m \in \{\text{BM25}, \text{Dense}\}} \frac{1}{k + \text{rank}_m(d)}$$
 4. **Chunk-to-Page Deduplication:** Automatically collapses multiple passage hits from the same document page, returning the page at its highest-scoring rank.
 
 ### 5.2 Production Engineering & Resilience (Checkpoint 07)
-- **Resumable Batch Cache:** Disk-backed `.npy` batch storage in `artifacts/advanced_retrieval/cache/` with JSON manifest indexing chunk hash signatures and model parameters.
+- **Resumable Batch Cache:** Disk-backed `.npy` batch storage in `artifacts/fast_hybrid_eval/cache/` with JSON manifest indexing chunk hash signatures and model parameters.
 - **SHA-256 Invalidation:** Automatically detects if corpus chunk text or configurations change, invalidating only modified batches.
 - **Corrupted Batch Recovery:** Identifies corrupted or truncated `.npy` files and automatically re-encodes only the damaged batches without restarting.
 - **CPU Safety Defaults:** Defaults strictly to `device="cpu"` to prevent OOM errors or CUDA device contention on constrained hardware.
 
-### 5.3 Staged 256-Chunk CPU Smoke Test
-Before initiating full-corpus encoding, the architecture was validated on 256 real SEC filing chunks (16 batches of 16 chunks):
-- Batch encoding completed in 1.2 seconds on CPU.
-- Verified exact 384-dimensional embedding geometry.
-- Verified cache persistence and instant resume on subsequent calls (0 ms latency).
-- Confirmed plausible semantic passage retrieval on sample financial queries.
+### 5.3 Controlled Bounded Real-Data Smoke Test (Checkpoint 08)
+
+> [!NOTE]
+> **Scope Governance: Smoke Test vs. Full Benchmark**
+>
+> The multi-retriever comparison below was evaluated on a bounded real-data subset of **4 complete 10-K filings** (`AMD_2022_10K`, `AMERICANEXPRESS_2022_10K`, `BOEING_2022_10K`, `AMCOR_2023_10K`), representing **727 pages** and **2,051 chunks** across **25 real financial questions**.
+>
+> All 4 retrievers searched the **exact same candidate pool and queries**. This bounded evaluation is strictly a **smoke test**, not a full 150-question / 84-document benchmark. Full 37,118-chunk dense embedding is staged for dedicated background execution.
+
+| Retrieval System | Candidates | Document Recall@5 | Evidence Page Recall@5 | Evidence Page MRR | Page nDCG@5 | Mean Latency |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **(1) Page BM25** | 727 pages | 96.00% | 20.00% | 0.1217 | 0.1372 | **1.3 ms** |
+| **(2) Chunk BM25** (256/64) | 2,051 chunks | 92.00% | 12.00% | 0.1002 | 0.0972 | 2.8 ms |
+| **(3) Dense BGE** (`bge-small-en-v1.5`) | 2,051 chunks | **100.00%** | **44.00%** | **0.2704** | **0.3084** | 29.1 ms |
+| **(4) Equal-Weight Hybrid RRF** ($k=60$) | 2,051 chunks | **100.00%** | **20.00%** | 0.1780 | 0.1755 | 31.9 ms |
+
+#### Statistical Hypothesis Testing ($n=1,000$ Paired Bootstraps)
+- **Dense vs. Chunk BM25:** Mean Difference = **+32.00%** in Evidence-Page Recall@5 (**44.00% vs. 12.00%**, 95% CI `[+16.00%, +52.00%]`, paired bootstrap **$p < 0.001$**). Statistically significant. Dense vector representations resolve financial table vocabulary divergence (e.g., matching "capital expenditures" to "property and equipment additions").
+- **Dense Outperformed Equal-Weight RRF:** Dense retrieval alone achieved **44.00%** Evidence-Page Recall@5 compared with **20.00%** for equal-weight Hybrid RRF.
+- **No Claim of Hybrid Superiority:** On this tabular financial subset, dense retrieval proved superior to equal-weight RRF. Equal-weight RRF ($k=60$) allowed lower-precision lexical BM25 noise to displace true dense hits in top-5 ranks. Hybrid RRF is not claimed to be superior to dense retrieval; weighted RRF ($\alpha \cdot \text{Dense} + (1-\alpha) \cdot \text{BM25}$) is indicated for future exploration.
 
 ---
 
@@ -221,17 +237,17 @@ Before initiating full-corpus encoding, the architecture was validated on 256 re
 | **Input Ablations & Paired Bootstrap** | Chkpt 06/06A | **Implemented & Verified** | Answer-Only Macro-F1: 0.6251, QA Recall: 62.90% |
 | **Answer-Template Leakage Audit** | Chkpt 06/06A | **Implemented & Verified** | 32 overlapping answers, 97.14% label agreement |
 | **Strict Answer-Disjoint Split** | Chkpt 06/06A | **Implemented & Verified** | Fully Evasive F1: 0.3977 (Distinct population) |
-| **FinanceBench Evidence Retrieval** | Chkpt 04 | **Implemented & Verified** | BM25 Doc Recall@5: 59.33%, Page Recall@5: 12.67% |
+| **FinanceBench Evidence Retrieval** | Chkpt 04 | **Implemented & Verified** | Full-corpus BM25 Doc Recall@5: 59.33%, Page Recall@5: 12.67% |
 | **FinanceBench Integrity Audit** | Chkpt 05 | **Implemented & Verified** | Front-matter offsets corrected; $N=150$ total benchmark |
-| **Answer-Quality Classification** | Chkpt 06 | **Implemented & Verified** | Answer-Only Macro-F1: 0.7704 (Not factual verifier) |
+| **Answer-Quality Classification** | Chkpt 06 | **Implemented & Verified** | Answer-Only Macro-F1: 0.7704 (Quality label only, not factual truth) |
 | **Financial Chunking Engine** | Chkpt 07 | **Implemented & Verified** | 37,118 chunks, financial notation safe |
-| **Chunk-Level BM25 Retrieval** | Chkpt 07 | **Implemented & Verified** | Doc Recall@5: 60.00%, Page Recall@5: 14.00% |
+| **Chunk-Level BM25 Retrieval** | Chkpt 07 | **Implemented & Verified** | Full-corpus Doc Recall@5: 60.00%, Page Recall@5: 14.00% |
 | **Resumable Dense Batch Cache** | Chkpt 07 | **Implemented & Verified** | SHA-256 checks, corruption recovery, CPU safe |
-| **Reciprocal Rank Fusion (RRF)** | Chkpt 07 | **Implemented & Verified** | Math & tie-breaking verified across 70 tests |
-| **256-Chunk CPU Smoke Test** | Chkpt 07 | **Implemented & Verified** | 16 batches, verified embeddings & cache reuse |
-| *Full 37,118 Chunk Dense Encoding* | Chkpt 07 | *Gated / Ready to Run* | Code complete; requires dedicated CPU/GPU job |
+| **Reciprocal Rank Fusion (RRF)** | Chkpt 07/08 | **Implemented & Verified** | Math, tie-breaking, and empty/missing dense fallback verified |
+| **Fast Hybrid RAG Smoke Test** | Chkpt 08 | **Implemented & Verified** | Bounded 4-filing smoke test: Dense Page R@5 44%, RRF 20% ($p < 0.001$) |
+| *Full 37,118 Chunk Dense Encoding* | Staged | *Ready to Run* | Code complete; requires dedicated background CPU job |
 | *Cross-Encoder Neural Reranker* | Proposed | *Architecture Designed* | Staged for future deployment |
-| *Symbolic Arithmetic Validator* | Proposed | *Architecture Designed* | Staged for future deployment |
+| *Symbolic Financial Claim Verifier* | Proposed | *Under Active Research* | Factual verification distinct from answer quality |
 
 ---
 
