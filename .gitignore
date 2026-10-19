@@ -65,6 +65,9 @@ artifacts/nlp_comparison/*
 artifacts/nlp_shortcut_audit/*
 !artifacts/nlp_shortcut_audit/metrics.json
 !artifacts/nlp_shortcut_audit/config.json
+!artifacts/fast_hybrid_eval/
+artifacts/fast_hybrid_eval/*
+!artifacts/fast_hybrid_eval/fast_hybrid_evaluation_results.json
 
 # Builds & Packaging
 build/

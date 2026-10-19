@@ -330,6 +330,10 @@ def evaluate_retriever_on_financebench(
                 }
             )
 
+    covered_metrics = (
+        compute_aggregates(covered_results, n_covered) if covered_results else {}
+    )
+
     return {
         "benchmark_summary": {
             "total_benchmark_questions": total_benchmark_count,
