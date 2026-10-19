@@ -303,6 +303,8 @@ def evaluate_retriever_on_financebench(
     numerical_metrics = compute_aggregates(num_results, len(num_results)) if num_results else {}
     prose_metrics = compute_aggregates(prose_results, len(prose_results)) if prose_results else {}
 
+    covered_metrics = compute_aggregates(covered_results, n_covered) if covered_results else {}
+
     # Collect error cases for qualitative audit
     error_cases = []
     for r in query_results:
@@ -341,6 +343,8 @@ def evaluate_retriever_on_financebench(
         },
         "performance": {
             "total_benchmark_metrics": total_metrics,
+            "covered_subset_metrics": covered_metrics,
+            "eligible_subset_metrics": covered_metrics,
             "numerical_subset_metrics": numerical_metrics,
             "prose_subset_metrics": prose_metrics,
         },

@@ -24,6 +24,20 @@ if TYPE_CHECKING:
         audit_parquet_dataset,
         download_evasionbench_parquet,
     )
+    from finveritas.nlp_evasion.transformer_classifier import (
+        DEFAULT_MAX_LENGTH,
+        DEFAULT_MODEL_NAME,
+        DISCLAIMER_TEXT,
+        EvasionQAPairDataset,
+        TransformerModelMetrics,
+        collate_qa_batch,
+        compute_metrics,
+        evaluate_transformer_model,
+        load_and_split_evasion_data,
+        predict_evasion_transformer,
+        run_forward_backward_smoke_test,
+        train_transformer_model,
+    )
 
 __all__ = [
     # Dataset Audit
@@ -41,7 +55,61 @@ __all__ = [
     "predict_evasion",
     "run_baseline_experiments",
     "train_and_save_baseline_model",
+    # Transformer Evasion
+    "DEFAULT_MAX_LENGTH",
+    "DEFAULT_MODEL_NAME",
+    "DISCLAIMER_TEXT",
+    "EvasionQAPairDataset",
+    "TransformerModelMetrics",
+    "collate_qa_batch",
+    "compute_metrics",
+    "evaluate_transformer_model",
+    "load_and_split_evasion_data",
+    "predict_evasion_transformer",
+    "run_forward_backward_smoke_test",
+    "train_transformer_model",
+    # Fair Benchmark & Audits
+    "audit_truncation_mechanics",
+    "audit_normalized_answer_leakage",
+    "train_fair_tfidf_baseline",
+    "evaluate_deberta_checkpoint",
+    "bootstrap_significance_test",
+    "normalize_answer_text",
+    # Shortcut Audit
+    "create_answer_disjoint_splits",
+    "audit_answer_templates",
+    "evaluate_answer_template_subsets",
 ]
+
+_TRANSFORMER_EXPORTS = {
+    "DEFAULT_MAX_LENGTH",
+    "DEFAULT_MODEL_NAME",
+    "DISCLAIMER_TEXT",
+    "EvasionQAPairDataset",
+    "TransformerModelMetrics",
+    "collate_qa_batch",
+    "compute_metrics",
+    "evaluate_transformer_model",
+    "load_and_split_evasion_data",
+    "predict_evasion_transformer",
+    "run_forward_backward_smoke_test",
+    "train_transformer_model",
+}
+
+_FAIR_BENCHMARK_EXPORTS = {
+    "audit_truncation_mechanics",
+    "audit_normalized_answer_leakage",
+    "train_fair_tfidf_baseline",
+    "evaluate_deberta_checkpoint",
+    "bootstrap_significance_test",
+    "normalize_answer_text",
+}
+
+_SHORTCUT_AUDIT_EXPORTS = {
+    "create_answer_disjoint_splits",
+    "audit_answer_templates",
+    "evaluate_answer_template_subsets",
+}
 
 
 def __getattr__(name: str):
@@ -68,4 +136,16 @@ def __getattr__(name: str):
         from finveritas.nlp_evasion import baselines
 
         return getattr(baselines, name)
+    if name in _TRANSFORMER_EXPORTS:
+        from finveritas.nlp_evasion import transformer_classifier
+
+        return getattr(transformer_classifier, name)
+    if name in _FAIR_BENCHMARK_EXPORTS:
+        from finveritas.nlp_evasion import fair_benchmark
+
+        return getattr(fair_benchmark, name)
+    if name in _SHORTCUT_AUDIT_EXPORTS:
+        from finveritas.nlp_evasion import shortcut_audit
+
+        return getattr(shortcut_audit, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

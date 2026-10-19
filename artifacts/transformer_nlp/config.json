@@ -1,0 +1,52 @@
+{
+  "model_id": "microsoft/deberta-v3-xsmall",
+  "dataset_path": "data\\raw\\evasionbench\\evasionbench_17k_eva4b_labels_dedup.parquet",
+  "target_field": "eva4b_label",
+  "input_fields": [
+    "question",
+    "answer"
+  ],
+  "prohibited_fields_excluded": [
+    "choices",
+    "eva4b_label_letter",
+    "uid"
+  ],
+  "max_length": 256,
+  "batch_size": 2,
+  "gradient_accumulation_steps": 4,
+  "learning_rate": 2e-05,
+  "epochs": 1,
+  "random_seed": 42,
+  "device": "cuda",
+  "split_configuration": {
+    "split_method": "StratifiedGroupKFold",
+    "base_n_splits": 5,
+    "test_fold_index": 0,
+    "random_state": 42,
+    "total_samples": 16726,
+    "train_samples": 10704,
+    "val_samples": 2676,
+    "test_samples": 3346,
+    "group_overlap": 0
+  },
+  "class_weights": {
+    "direct": 0.6372566529737453,
+    "intermediate": 0.7575371549893843,
+    "fully_evasive": 9.032911392405063
+  },
+  "truncation_stats": {
+    "total_samples": 3346,
+    "truncated_samples": 1510,
+    "truncation_rate": 0.4513,
+    "max_length_configured": 256,
+    "notes": "Pairs exceeding max_length tokens have executive answer tokens truncated from the end."
+  },
+  "environment": {
+    "python_version": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "torch_version": "2.6.0+cu124",
+    "cuda_available": true,
+    "gpu_name": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+    "platform": "Windows-11-10.0.26300-SP0"
+  },
+  "scientific_disclaimer": "These classification scores measure empirical agreement with Eva-4B-V2 model-generated pseudo-labels on EvasionBench, NOT independently verified human ground-truth evasion."
+}

@@ -1,0 +1,860 @@
+{
+  "experiment_1_input_ablations": {
+    "model_c_question_and_answer_384": {
+      "model_name": "deberta_v3_xsmall_qa_384",
+      "input_mode": "qa",
+      "max_length": 384,
+      "accuracy": 0.6387,
+      "macro_f1": 0.5959,
+      "weighted_f1": 0.6328,
+      "per_class": {
+        "direct": {
+          "precision": 0.8251,
+          "recall": 0.48,
+          "f1": 0.6069,
+          "support": 1750
+        },
+        "intermediate": {
+          "precision": 0.5686,
+          "recall": 0.8281,
+          "f1": 0.6742,
+          "support": 1472
+        },
+        "fully_evasive": {
+          "precision": 0.4239,
+          "recall": 0.629,
+          "f1": 0.5065,
+          "support": 124
+        }
+      },
+      "confusion_matrix": [
+        [
+          840,
+          884,
+          26
+        ],
+        [
+          173,
+          1219,
+          80
+        ],
+        [
+          5,
+          41,
+          78
+        ]
+      ],
+      "train_wall_time_seconds": 655.93,
+      "eval_wall_time_seconds": 50.433,
+      "checkpoint_path": "artifacts\\nlp_comparison\\checkpoints_384\\best_model.pt"
+    },
+    "model_b_answer_only_384": {
+      "model_name": "deberta_v3_xsmall_answer_only_384",
+      "input_mode": "answer_only",
+      "max_length": 384,
+      "accuracy": 0.6751,
+      "macro_f1": 0.6251,
+      "weighted_f1": 0.6755,
+      "per_class": {
+        "direct": {
+          "precision": 0.7212,
+          "recall": 0.6931,
+          "f1": 0.7069,
+          "support": 1750
+        },
+        "intermediate": {
+          "precision": 0.6347,
+          "recall": 0.6692,
+          "f1": 0.6515,
+          "support": 1472
+        },
+        "fully_evasive": {
+          "precision": 0.5446,
+          "recall": 0.4919,
+          "f1": 0.5169,
+          "support": 124
+        }
+      },
+      "confusion_matrix": [
+        [
+          1213,
+          523,
+          14
+        ],
+        [
+          450,
+          985,
+          37
+        ],
+        [
+          19,
+          44,
+          61
+        ]
+      ],
+      "train_wall_time_seconds": 553.25,
+      "eval_wall_time_seconds": 47.285,
+      "differences_relative_to_qa": {
+        "accuracy_delta": 0.0364,
+        "macro_f1_delta": 0.0292,
+        "weighted_f1_delta": 0.0427,
+        "per_class_f1_deltas": {
+          "direct": 0.1,
+          "intermediate": -0.0227,
+          "fully_evasive": 0.0104
+        }
+      }
+    },
+    "model_a_question_only_384": {
+      "model_name": "deberta_v3_xsmall_question_only_384",
+      "input_mode": "question_only",
+      "max_length": 384,
+      "accuracy": 0.6181,
+      "macro_f1": 0.4193,
+      "weighted_f1": 0.607,
+      "per_class": {
+        "direct": {
+          "precision": 0.657,
+          "recall": 0.6326,
+          "f1": 0.6445,
+          "support": 1750
+        },
+        "intermediate": {
+          "precision": 0.5786,
+          "recall": 0.6529,
+          "f1": 0.6135,
+          "support": 1472
+        },
+        "fully_evasive": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 124
+        }
+      },
+      "confusion_matrix": [
+        [
+          1107,
+          643,
+          0
+        ],
+        [
+          511,
+          961,
+          0
+        ],
+        [
+          67,
+          57,
+          0
+        ]
+      ],
+      "train_wall_time_seconds": 583.08,
+      "eval_wall_time_seconds": 24.553,
+      "differences_relative_to_qa": {
+        "accuracy_delta": -0.0206,
+        "macro_f1_delta": -0.1766,
+        "weighted_f1_delta": -0.0258,
+        "per_class_f1_deltas": {
+          "direct": 0.0376,
+          "intermediate": -0.0607,
+          "fully_evasive": -0.5065
+        }
+      }
+    },
+    "paired_bootstrap_significance": {
+      "n_bootstraps": 1000,
+      "seed": 42,
+      "models": {
+        "deberta_qa_384": {
+          "macro_f1_mean": 0.5952,
+          "macro_f1_std": 0.0131,
+          "macro_f1_ci95": [
+            0.5677,
+            0.6199
+          ],
+          "fully_evasive_f1_mean": 0.5055,
+          "fully_evasive_f1_std": 0.0341,
+          "fully_evasive_f1_ci95": [
+            0.435,
+            0.5698
+          ]
+        },
+        "deberta_a_only_384": {
+          "macro_f1_mean": 0.6241,
+          "macro_f1_std": 0.0146,
+          "macro_f1_ci95": [
+            0.5952,
+            0.6527
+          ],
+          "fully_evasive_f1_mean": 0.5146,
+          "fully_evasive_f1_std": 0.0397,
+          "fully_evasive_f1_ci95": [
+            0.4348,
+            0.5923
+          ]
+        },
+        "deberta_q_only_384": {
+          "macro_f1_mean": 0.4191,
+          "macro_f1_std": 0.0055,
+          "macro_f1_ci95": [
+            0.4087,
+            0.4299
+          ],
+          "fully_evasive_f1_mean": 0.0,
+          "fully_evasive_f1_std": 0.0,
+          "fully_evasive_f1_ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "pairwise_differences": {
+        "deberta_a_only_384_vs_deberta_qa_384": {
+          "macro_f1_delta_mean": 0.0289,
+          "macro_f1_delta_ci95": [
+            0.0044,
+            0.051
+          ],
+          "macro_f1_p_value_m2_le_m1": 0.008,
+          "fully_evasive_f1_delta_mean": 0.0092,
+          "fully_evasive_f1_delta_ci95": [
+            -0.0511,
+            0.0662
+          ],
+          "fully_evasive_f1_p_value_m2_le_m1": 0.362
+        },
+        "deberta_q_only_384_vs_deberta_qa_384": {
+          "macro_f1_delta_mean": -0.1761,
+          "macro_f1_delta_ci95": [
+            -0.2028,
+            -0.1473
+          ],
+          "macro_f1_p_value_m2_le_m1": 1.0,
+          "fully_evasive_f1_delta_mean": -0.5055,
+          "fully_evasive_f1_delta_ci95": [
+            -0.5698,
+            -0.435
+          ],
+          "fully_evasive_f1_p_value_m2_le_m1": 1.0
+        },
+        "deberta_q_only_384_vs_deberta_a_only_384": {
+          "macro_f1_delta_mean": -0.205,
+          "macro_f1_delta_ci95": [
+            -0.2356,
+            -0.1755
+          ],
+          "macro_f1_p_value_m2_le_m1": 1.0,
+          "fully_evasive_f1_delta_mean": -0.5146,
+          "fully_evasive_f1_delta_ci95": [
+            -0.5923,
+            -0.4348
+          ],
+          "fully_evasive_f1_p_value_m2_le_m1": 1.0
+        }
+      }
+    }
+  },
+  "experiment_2_answer_template_diagnostics": {
+    "leakage_summary": {
+      "unique_answers_train": 10592,
+      "unique_answers_val": 2657,
+      "unique_answers_test": 3325,
+      "overlap_train_val": 35,
+      "overlap_train_test": 32,
+      "overlap_val_test": 10,
+      "train_test_overlap_samples_in_test": 35,
+      "train_test_label_agreement_rate": 0.9714,
+      "train_test_overlap_examples": [
+        {
+          "test_index": 64,
+          "normalized_answer": "so, i'm not going to refine my guidance that precisely for q1, but what i will say is the decrease in q4 to q1 is all in...",
+          "test_label": "intermediate",
+          "train_labels_observed": {
+            "direct": 1
+          },
+          "label_agreed": false
+        },
+        {
+          "test_index": 199,
+          "normalized_answer": "after all the restructuring for our employees, we still maintain sufficient tutors to support the learning service for o...",
+          "test_label": "intermediate",
+          "train_labels_observed": {
+            "intermediate": 1
+          },
+          "label_agreed": true
+        },
+        {
+          "test_index": 368,
+          "normalized_answer": "that's a great question. one of the things i like and has been a pretty big change for us is up until 2019, we were a on...",
+          "test_label": "direct",
+          "train_labels_observed": {
+            "direct": 1
+          },
+          "label_agreed": true
+        },
+        {
+          "test_index": 411,
+          "normalized_answer": "that's correct.",
+          "test_label": "direct",
+          "train_labels_observed": {
+            "direct": 10
+          },
+          "label_agreed": true
+        },
+        {
+          "test_index": 519,
+          "normalized_answer": "thanks, charlie. i will take this question. our service network expansion has always been driven by both the direct and ...",
+          "test_label": "intermediate",
+          "train_labels_observed": {
+            "intermediate": 1
+          },
+          "label_agreed": true
+        },
+        {
+          "test_index": 629,
+          "normalized_answer": "so the answer is yes. so i think our position on the f-35 is pretty strong. we continue to win more content on the progr...",
+          "test_label": "direct",
+          "train_labels_observed": {
+            "direct": 1
+          },
+          "label_agreed": true
+        },
+        {
+          "test_index": 630,
+          "normalized_answer": "so i'm not going to speak specifically to that, mike. it's in the early stage and is obviously still competitive. but we...",
+          "test_label": "fully_evasive",
+          "train_labels_observed": {
+            "fully_evasive": 1
+          },
+          "label_agreed": true
+        },
+        {
+          "test_index": 633,
+          "normalized_answer": "no restrictions other than other than the fact that must be used for green investment and we will have to get our audito...",
+          "test_label": "direct",
+          "train_labels_observed": {
+            "direct": 1
+          },
+          "label_agreed": true
+        },
+        {
+          "test_index": 649,
+          "normalized_answer": "the -- i think just taking it to back first, i just want to reiterate that the q3 market share sequential is not a decli...",
+          "test_label": "fully_evasive",
+          "train_labels_observed": {
+            "fully_evasive": 1
+          },
+          "label_agreed": true
+        },
+        {
+          "test_index": 672,
+          "normalized_answer": "we're aiming for comparable margins in storage as in vehicle. but it is important to bear in mind that vehicle is more m...",
+          "test_label": "direct",
+          "train_labels_observed": {
+            "direct": 1
+          },
+          "label_agreed": true
+        }
+      ],
+      "methodological_note": "Question-level leakage is strictly zero (zero normalized-question overlap). Answer overlap reflects formulaic executive expressions ('Yes.', 'No.', 'Thank you.', 'We do not provide that guidance.'). Company-level, speaker-level, and temporal leakage cannot be excluded because the dataset lacks ticker, speaker, and call-date metadata."
+    },
+    "overlapping_test_samples_count": 35,
+    "unseen_test_samples_count": 3311,
+    "performance_by_answer_familiarity": {
+      "deberta_qa_384": {
+        "overlapping_answers": {
+          "accuracy": 0.7143,
+          "macro_f1": 0.6441,
+          "weighted_f1": 0.7269,
+          "per_class": {
+            "direct": {
+              "precision": 0.9375,
+              "recall": 0.6818,
+              "f1": 0.7895,
+              "support": 22
+            },
+            "intermediate": {
+              "precision": 0.5294,
+              "recall": 0.8182,
+              "f1": 0.6429,
+              "support": 11
+            },
+            "fully_evasive": {
+              "precision": 0.5,
+              "recall": 0.5,
+              "f1": 0.5,
+              "support": 2
+            }
+          },
+          "confusion_matrix": [
+            [
+              15,
+              7,
+              0
+            ],
+            [
+              1,
+              9,
+              1
+            ],
+            [
+              0,
+              1,
+              1
+            ]
+          ],
+          "sample_count": 35
+        },
+        "unseen_answers": {
+          "accuracy": 0.6379,
+          "macro_f1": 0.5951,
+          "weighted_f1": 0.6317,
+          "per_class": {
+            "direct": {
+              "precision": 0.8234,
+              "recall": 0.4774,
+              "f1": 0.6044,
+              "support": 1728
+            },
+            "intermediate": {
+              "precision": 0.5689,
+              "recall": 0.8282,
+              "f1": 0.6745,
+              "support": 1461
+            },
+            "fully_evasive": {
+              "precision": 0.4231,
+              "recall": 0.6311,
+              "f1": 0.5066,
+              "support": 122
+            }
+          },
+          "confusion_matrix": [
+            [
+              825,
+              877,
+              26
+            ],
+            [
+              172,
+              1210,
+              79
+            ],
+            [
+              5,
+              40,
+              77
+            ]
+          ],
+          "sample_count": 3311
+        }
+      },
+      "deberta_a_only_384": {
+        "overlapping_answers": {
+          "accuracy": 0.8286,
+          "macro_f1": 0.7713,
+          "weighted_f1": 0.8318,
+          "per_class": {
+            "direct": {
+              "precision": 0.9474,
+              "recall": 0.8182,
+              "f1": 0.878,
+              "support": 22
+            },
+            "intermediate": {
+              "precision": 0.6667,
+              "recall": 0.9091,
+              "f1": 0.7692,
+              "support": 11
+            },
+            "fully_evasive": {
+              "precision": 1.0,
+              "recall": 0.5,
+              "f1": 0.6667,
+              "support": 2
+            }
+          },
+          "confusion_matrix": [
+            [
+              18,
+              4,
+              0
+            ],
+            [
+              1,
+              10,
+              0
+            ],
+            [
+              0,
+              1,
+              1
+            ]
+          ],
+          "sample_count": 35
+        },
+        "unseen_answers": {
+          "accuracy": 0.6735,
+          "macro_f1": 0.6234,
+          "weighted_f1": 0.6738,
+          "per_class": {
+            "direct": {
+              "precision": 0.7186,
+              "recall": 0.6916,
+              "f1": 0.7048,
+              "support": 1728
+            },
+            "intermediate": {
+              "precision": 0.6344,
+              "recall": 0.6674,
+              "f1": 0.6504,
+              "support": 1461
+            },
+            "fully_evasive": {
+              "precision": 0.5405,
+              "recall": 0.4918,
+              "f1": 0.515,
+              "support": 122
+            }
+          },
+          "confusion_matrix": [
+            [
+              1195,
+              519,
+              14
+            ],
+            [
+              449,
+              975,
+              37
+            ],
+            [
+              19,
+              43,
+              60
+            ]
+          ],
+          "sample_count": 3311
+        }
+      },
+      "deberta_q_only_384": {
+        "overlapping_answers": {
+          "accuracy": 0.5429,
+          "macro_f1": 0.3595,
+          "weighted_f1": 0.5383,
+          "per_class": {
+            "direct": {
+              "precision": 0.6842,
+              "recall": 0.5909,
+              "f1": 0.6341,
+              "support": 22
+            },
+            "intermediate": {
+              "precision": 0.375,
+              "recall": 0.5455,
+              "f1": 0.4444,
+              "support": 11
+            },
+            "fully_evasive": {
+              "precision": 0.0,
+              "recall": 0.0,
+              "f1": 0.0,
+              "support": 2
+            }
+          },
+          "confusion_matrix": [
+            [
+              13,
+              9,
+              0
+            ],
+            [
+              5,
+              6,
+              0
+            ],
+            [
+              1,
+              1,
+              0
+            ]
+          ],
+          "sample_count": 35
+        },
+        "unseen_answers": {
+          "accuracy": 0.6188,
+          "macro_f1": 0.4199,
+          "weighted_f1": 0.6078,
+          "per_class": {
+            "direct": {
+              "precision": 0.6567,
+              "recall": 0.6331,
+              "f1": 0.6447,
+              "support": 1728
+            },
+            "intermediate": {
+              "precision": 0.5805,
+              "recall": 0.6537,
+              "f1": 0.6149,
+              "support": 1461
+            },
+            "fully_evasive": {
+              "precision": 0.0,
+              "recall": 0.0,
+              "f1": 0.0,
+              "support": 122
+            }
+          },
+          "confusion_matrix": [
+            [
+              1094,
+              634,
+              0
+            ],
+            [
+              506,
+              955,
+              0
+            ],
+            [
+              66,
+              56,
+              0
+            ]
+          ],
+          "sample_count": 3311
+        }
+      }
+    },
+    "top_frequent_answer_templates": [
+      {
+        "template": "that's correct.",
+        "total_count": 19,
+        "label_distribution": {
+          "direct": 19
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "that is correct.",
+        "total_count": 7,
+        "label_distribution": {
+          "direct": 6,
+          "fully_evasive": 1
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 0.8571
+      },
+      {
+        "template": "sure. i've mentioned this before in terms of regulatory credit. we manage the bu...",
+        "total_count": 6,
+        "label_distribution": {
+          "intermediate": 6
+        },
+        "dominant_label": "intermediate",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "yes. it's not true at demand. it's really just a production issue. it's been pre...",
+        "total_count": 6,
+        "label_distribution": {
+          "direct": 6
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "ok. we can't say too much about this, except that where there will be local cell...",
+        "total_count": 5,
+        "label_distribution": {
+          "fully_evasive": 5
+        },
+        "dominant_label": "fully_evasive",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "that's right.",
+        "total_count": 5,
+        "label_distribution": {
+          "direct": 5
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "yes. just to start with the gross margin questions. we did see progress on gross...",
+        "total_count": 5,
+        "label_distribution": {
+          "intermediate": 5
+        },
+        "dominant_label": "intermediate",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "demand is not a problem, definitely not. we do have some production supply chain...",
+        "total_count": 5,
+        "label_distribution": {
+          "direct": 5
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "in terms of digital entertainment, our guidance does take into account of games ...",
+        "total_count": 3,
+        "label_distribution": {
+          "intermediate": 3
+        },
+        "dominant_label": "intermediate",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "yes, it is.",
+        "total_count": 3,
+        "label_distribution": {
+          "direct": 3
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "well, i don't have a crystal ball. so right now, the forward curve does show int...",
+        "total_count": 3,
+        "label_distribution": {
+          "direct": 3
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "that's correct. yes.",
+        "total_count": 3,
+        "label_distribution": {
+          "direct": 3
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "yes. that's correct.",
+        "total_count": 3,
+        "label_distribution": {
+          "direct": 3
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "yes, you read that correctly.",
+        "total_count": 3,
+        "label_distribution": {
+          "direct": 3
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 1.0
+      },
+      {
+        "template": "well, i think we actually achieved both when you factor in autonomy. i think we ...",
+        "total_count": 3,
+        "label_distribution": {
+          "direct": 3
+        },
+        "dominant_label": "direct",
+        "dominant_label_purity": 1.0
+      }
+    ]
+  },
+  "experiment_3_strict_answer_disjoint_evaluation": {
+    "existing_question_disjoint_qa_384": {
+      "test_partition": "normalized_question_disjoint",
+      "accuracy": 0.6387,
+      "macro_f1": 0.5959,
+      "weighted_f1": 0.6328,
+      "per_class": {
+        "direct": {
+          "precision": 0.8251,
+          "recall": 0.48,
+          "f1": 0.6069,
+          "support": 1750
+        },
+        "intermediate": {
+          "precision": 0.5686,
+          "recall": 0.8281,
+          "f1": 0.6742,
+          "support": 1472
+        },
+        "fully_evasive": {
+          "precision": 0.4239,
+          "recall": 0.629,
+          "f1": 0.5065,
+          "support": 124
+        }
+      },
+      "test_samples": 3346
+    },
+    "strict_answer_disjoint_qa_384": {
+      "model_name": "deberta_v3_xsmall_qa_384_answer_disjoint_split",
+      "split_type": "normalized_answer_disjoint",
+      "accuracy": 0.6973,
+      "macro_f1": 0.5935,
+      "weighted_f1": 0.6861,
+      "per_class": {
+        "direct": {
+          "precision": 0.6858,
+          "recall": 0.852,
+          "f1": 0.7599,
+          "support": 1750
+        },
+        "intermediate": {
+          "precision": 0.7205,
+          "recall": 0.5482,
+          "f1": 0.6227,
+          "support": 1472
+        },
+        "fully_evasive": {
+          "precision": 0.6731,
+          "recall": 0.2823,
+          "f1": 0.3977,
+          "support": 124
+        }
+      },
+      "confusion_matrix": [
+        [
+          1491,
+          249,
+          10
+        ],
+        [
+          658,
+          807,
+          7
+        ],
+        [
+          25,
+          64,
+          35
+        ]
+      ],
+      "train_wall_time_seconds": 713.952,
+      "eval_wall_time_seconds": 53.987,
+      "partition_metadata": {
+        "partitioning_type": "normalized_answer_disjoint",
+        "total_samples": 16726,
+        "train_samples": 10704,
+        "val_samples": 2676,
+        "test_samples": 3346,
+        "unique_answer_groups_train": 10563,
+        "unique_answer_groups_val": 2633,
+        "unique_answer_groups_test": 3302,
+        "answer_group_overlap_train_val": 0,
+        "answer_group_overlap_train_test": 0,
+        "answer_group_overlap_val_test": 0,
+        "random_state": 42
+      },
+      "methodological_warning": "This strict answer-disjoint test set represents a distinct evaluation population from the normalized-question-disjoint test set. Scores must NOT be directly equated."
+    }
+  },
+  "scientific_disclaimer": "These classification scores measure empirical agreement with Eva-4B-V2 model-generated pseudo-labels on EvasionBench, NOT independently verified human ground-truth evasion."
+}

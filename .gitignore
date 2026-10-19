@@ -53,6 +53,18 @@ artifacts/answer_quality/*
 artifacts/advanced_retrieval/*
 !artifacts/advanced_retrieval/metrics.json
 !artifacts/advanced_retrieval/config.json
+!artifacts/transformer_nlp/
+artifacts/transformer_nlp/*
+!artifacts/transformer_nlp/metrics.json
+!artifacts/transformer_nlp/config.json
+!artifacts/nlp_comparison/
+artifacts/nlp_comparison/*
+!artifacts/nlp_comparison/metrics.json
+!artifacts/nlp_comparison/config.json
+!artifacts/nlp_shortcut_audit/
+artifacts/nlp_shortcut_audit/*
+!artifacts/nlp_shortcut_audit/metrics.json
+!artifacts/nlp_shortcut_audit/config.json
 
 # Builds & Packaging
 build/
