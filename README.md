@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/Tests-70%20Passed%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-80%20Total%20%7C%2077%20Passed-brightgreen.svg)]()
 [![Code Style](https://img.shields.io/badge/Code%20Style-Ruff-black.svg)](https://github.com/astral-sh/ruff)
 
 **FinVeritas** is an end-to-end financial intelligence and claim verification framework. It is engineered to detect managerial question-evasion during corporate earnings-call Q&A sessions and audit extracted financial claims against official regulatory filings (10-K, 10-Q, 8-K) through hybrid lexical-dense retrieval and evidence grounding.
@@ -22,6 +22,7 @@ FinVeritas solves this problem through an audited, multi-stage architecture:
 - **Shortcut Learning & Robustness Audits:** Quantifying answer-template memorization and evaluating models on strict answer-disjoint splits to guard against superficial corporate phrasing shortcuts.
 - **SEC Filing Regulatory Retrieval:** Parsing complex 10-K/10-Q filings into fine-grained, notation-preserving financial chunks, indexed via hybrid lexical BM25 and dense neural embeddings fused with Reciprocal Rank Fusion (RRF).
 - **Answer-Quality vs. Factual Verification Audits:** Benchmarking model completion quality while explicitly establishing that stylistic quality scoring is not a proxy for regulatory factual truth.
+- **Evidence-Grounded Numerical Claim Verification:** Deterministic, symbolic verification of financial claims against retrieved SEC filing pages using exact `Decimal` arithmetic, unit/scale normalizations, and explicit rounding intervals.
 
 ---
 
@@ -57,11 +58,13 @@ FinVeritas solves this problem through an audited, multi-stage architecture:
 │                              └──────────────────────────┬──────────────────────────┘   │
 │                                                         │ Evidence Pages / Passages    │
 │                                                         ▼                              │
-│   STAGE 3: VERIFICATION & CLAIM GROUNDING (Under Active Development)                   │
+│   STAGE 3: VERIFICATION & CLAIM GROUNDING (Evidence-Grounded MVP)                      │
 │   ┌────────────────────┐     ┌─────────────────────────────────────────────────────┐   │
-│   │ Grounded Passages  │ ──> │ Answer-Quality Classification (Predicts Label)      │   │
-│   │ Executive Claims   │     │  *CAUTION: Does not establish factual truth         │   │
-│   └────────────────────┘     │ Proposed: Numerical Symbolic Engine & NLI Fact-Check│   │
+│   │ Grounded Passages  │ ──> │ Deterministic Numerical Claim Verifier (Checkpoint  │   │
+│   │ Executive Claims   │     │  09 MVP: Decimal math, scale normalization, bounds, │   │
+│   └────────────────────┘     │  abstention, official SEC citations)                │   │
+│                              │ Answer-Quality Classification (Quality label only)  │   │
+│                              │ Proposed: Complex GAAP/Footnote Reconciliation      │   │
 │                              └─────────────────────────────────────────────────────┘   │
 │                                                                                        │
 └────────────────────────────────────────────────────────────────────────────────────────┘
@@ -171,6 +174,30 @@ Implemented an advanced hybrid retrieval engine combining lexical BM25, dense ne
 
 ---
 
+### 6. Evidence-Grounded Financial Claim Verification MVP (Checkpoint 09)
+
+Checkpoint 09 introduces the first regulatory-grounded financial claim-verification vertical slice in FinVeritas, implementing a deterministic, zero-hallucination verification engine (`src/finveritas/verification/numeric_verifier.py`) and retrieval-grounded CLI (`scripts/verify_claim.py`):
+
+- **Pure Decimal Arithmetic:** Operates entirely over `decimal.Decimal` to eliminate binary floating-point rounding errors.
+- **Unit & Scale Canonicalization:** Automatically reconciles scale representations across explicit units (e.g., USD 23.6 billion $\equiv$ USD 23,600 million $\equiv$ USD 23,600,000,000).
+- **Dual Rounding Interval & Tolerance:** Computes explicit precision bounds based on stated significant decimal digits ($\Delta_{\text{bounds}} = \frac{1}{2} \cdot 10^{-d} \cdot S_{\text{claim}}$) alongside a 0.5% relative tolerance ($\Delta_{\text{rel}} = |V_{\text{claim}}| \cdot 0.005$).
+- **Closed-World Verdict State Machine:**
+  - `SUPPORTED`: Sufficiently specific evidence from the relevant filing matches the metric, period, and value within documented tolerance.
+  - `CONTRADICTED`: Directly comparable filing evidence for the same metric and period reports a conflicting value outside tolerance.
+  - `INSUFFICIENT_EVIDENCE`: Missing evidence, unmatched reporting periods, unit mismatches, conflicting candidates, or parsing ambiguity.
+  - *Epistemic Safety Rule*: Never infer truth from retrieval score alone. Never infer contradiction from passage omission.
+- **Un-Truncated Page Retrieval:** Connects BM25 retrieval over full SEC filing pages (preserving all financial statement row context and column headers) rather than truncated snippets.
+- **Audit-Grade Citations:** Every verdict produces an `EvidenceCitation` detailing document ID, 0-based PDF page index, 1-based filing display page, official SEC filing URL, and matched text snippet.
+
+#### Real SEC Filing Demonstration (AMD 2022 Form 10-K)
+Validated on the official AMD 2022 10-K filing from the local FinanceBench corpus:
+- **Claim:** AMD FY2022 Net Sales were `$23.6 billion`.
+- **Filing Evidence:** Consolidated Statements of Operations (PDF page index 42, display page 43) reports Net Sales of `$23,601 million`.
+- **Verdict:** `SUPPORTED` (diff: $1,000,000 USD within $50,000,000 USD precision bounds and $118,000,000 USD relative tolerance).
+- **Official SEC Citation:** [AMD 2022 10-K (Page 43)](https://ir.amd.com/sec-filings/content/0000002488-23-000047/0000002488-23-000047.pdf).
+
+---
+
 ## Component Implementation Status Matrix
 
 | Component | Checkpoint | Status | Evaluated Metric / Deliverable |
@@ -190,9 +217,11 @@ Implemented an advanced hybrid retrieval engine combining lexical BM25, dense ne
 | **Resumable Dense Batch Cache** | Chkpt 07 | **Implemented & Verified** | SHA-256 checks, corruption recovery, CPU safe |
 | **Reciprocal Rank Fusion (RRF)** | Chkpt 07/08 | **Implemented & Verified** | Math, tie-breaking, and empty/missing dense fallback verified |
 | **Fast Hybrid RAG Smoke Test** | Chkpt 08 | **Implemented & Verified** | Bounded 4-filing smoke test: Dense Page R@5 44%, RRF 20% ($p < 0.001$) |
+| **Deterministic Numerical Claim Verifier** | Chkpt 09 | **Implemented & Verified** | Pure Decimal math, scale normalization, bounds interval, citations |
+| **Filing-Grounded Claim Verification CLI** | Chkpt 09 | **Implemented & Verified** | BM25 retrieval over full filing page text, SEC URL citations |
 | *Full 37,118 Chunk Dense Encoding* | Staged | *Ready to Run* | Code complete; requires dedicated background CPU job |
 | *Cross-Encoder Neural Reranker* | Proposed | *Architecture Designed* | Staged for future deployment |
-| *Symbolic Financial Claim Verifier* | Proposed | *Under Active Research* | Factual verification distinct from answer quality |
+| *General-Purpose Complex GAAP Verifier* | Proposed | *Under Active Research* | Non-GAAP reconciliations, multi-step math, scanned footnotes |
 
 ---
 
@@ -215,7 +244,8 @@ finveritas/
 │   │   ├── financebench_data.py               # FinanceBench dataset loader & PDF text extractor
 │   │   └── retrievers.py                      # BM25, TF-IDF, Dense (all-MiniLM) & Hybrid RRF
 │   └── verification/                          # Claim verification & answer quality
-│       └── answer_quality.py                  # Answer quality grouped-CV & multiclass metrics
+│       ├── answer_quality.py                  # Answer quality grouped-CV & multiclass metrics
+│       └── numeric_verifier.py                # Deterministic Decimal claim verifier & citation models
 │
 ├── configs/                                   # Non-secret configuration files
 │   ├── datasets/financebench.yaml             # FinanceBench file paths & evaluation settings
@@ -230,10 +260,12 @@ finveritas/
 │   ├── evaluate_advanced_retrieval.py         # Evaluation CLI for chunk-level hybrid retrieval
 │   ├── test_cpu_256_chunks.py                 # Staged CPU smoke test (256 real SEC chunks)
 │   ├── train_answer_quality_baselines.py      # Answer-quality grouped-CV training CLI
-│   └── audit_evidence_alignment.py            # PDF page-index offset and alignment auditor
+│   ├── audit_evidence_alignment.py            # PDF page-index offset and alignment auditor
+│   └── verify_claim.py                        # CLI for evidence-grounded financial claim verification
 │
 ├── docs/research/                             # Detailed research papers & scientific audits
 │   ├── finveritas_project_report.md           # Master consolidated research & project report
+│   ├── numeric_claim_verification_mvp.md      # Grounded claim verification MVP & real filing audit
 │   ├── nlp_shortcut_audit.md                  # Shortcut audit report with corrected claims
 │   ├── nlp_shortcut_audit_errata.md           # Formal errata & claim qualification document
 │   ├── fair_nlp_comparison.md                 # Baseline vs 384-token DeBERTa benchmark
@@ -252,7 +284,7 @@ finveritas/
 │   ├── answer_quality/                        # Checkpoint 06 Answer-quality metrics & config
 │   └── advanced_retrieval/                    # Checkpoint 07 Hybrid retrieval configs
 │
-└── tests/unit/                                # Automated verification test suite (70 tests)
+└── tests/unit/                                # Automated verification test suite (80 tests)
     ├── test_baselines.py                      # TF-IDF baseline and leakage-free split tests
     ├── test_dataset_audit.py                  # EvasionBench schema and integrity tests
     ├── test_transformer_classifier.py        # Tokenization, truncation and model forward tests
@@ -260,7 +292,8 @@ finveritas/
     ├── test_nlp_shortcut_audit.py             # Disjoint split, template audit & report integrity
     ├── test_financebench_retrieval.py         # BM25, TF-IDF and page evaluation tests
     ├── test_answer_quality.py                 # Answer quality schema and grouped-KFold tests
-    └── test_advanced_retrieval.py             # Chunking, dense cache, RRF fusion & CPU tests
+    ├── test_advanced_retrieval.py             # Chunking, dense cache, RRF fusion & CPU tests
+    └── test_numeric_verifier.py               # Deterministic verifier, citations, and real filing tests
 ```
 
 ---
@@ -279,7 +312,7 @@ pip install -e ".[dev,nlp]"
 ```
 
 ### 2. Run Test Suite
-Verify the full test suite across both NLP and Retrieval tracks (70 tests, 100% pass rate):
+Verify the full test suite across NLP, Retrieval, and Verification tracks (80 tests: 77 passed, 3 skipped):
 ```bash
 pytest -v
 ```
@@ -310,6 +343,18 @@ Evaluate answer-quality classification under 5-fold grouped-CV:
 python scripts/train_answer_quality_baselines.py
 ```
 
+### 6. Evidence-Grounded Financial Claim Verification CLI
+Verify financial claims against local SEC filings with BM25 page retrieval and deterministic Decimal math:
+```bash
+python scripts/verify_claim.py \
+  --claim "AMD net sales were $23.6 billion for fiscal 2022" \
+  --ticker AMD \
+  --period 2022 \
+  --metric revenue \
+  --value 23.6 \
+  --scale billion
+```
+
 ---
 
 ## Limitations & Governance Principles
@@ -318,3 +363,5 @@ python scripts/train_answer_quality_baselines.py
 2. **Evaluation Population Integrity:** Standard question-disjoint and strict answer-disjoint splits represent distinct evaluation populations. Metric differences reflect both partition distribution shift and shortcut mitigation; they cannot be treated as a pure causal measurement of template memorization.
 3. **Retrieval Denominator Governance:** Benchmarks must be reported over the full 150-question corpus ($N=150$) rather than eligible-only subsets to penalize missing documents transparently.
 4. **Answer Quality is Not Truth:** Fluent model answers must be independently cross-referenced against audited SEC filings via symbolic numerical validation before being relied upon by financial analysts.
+5. **Epistemic Abstention in Claim Verification:** The numerical claim verifier enforces a fail-closed policy. Retrieval omissions, ambiguous tables, or unparseable context trigger `INSUFFICIENT_EVIDENCE`. Contradictions are declared only when directly comparable filing evidence affirmatively conflicts on the exact metric and period.
+
